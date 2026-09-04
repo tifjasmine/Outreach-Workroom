@@ -1,0 +1,7 @@
+.status-strip { grid-template-columns: repeat(4, 1fr); }
+.quick-contact input[type='date'] { color-scheme: light; min-height: 39px; }
+
+@media (max-width: 850px) {
+  .status-strip { grid-template-columns: repeat(2, 1fr); }
+  .status-strip button:nth-child(5) { grid-column: auto; }
+}
