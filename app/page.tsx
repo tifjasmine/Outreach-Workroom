@@ -3,9 +3,6 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   ArrowUpRight,
   AtSign as Instagram,
-  CalendarDays,
-  CheckCircle2,
-  Clock3,
   Filter,
   GripVertical,
   LayoutDashboard,
@@ -157,12 +154,22 @@ export default function Home() {
     try {
       const saved = localStorage.getItem(`outreach-tasks-${currentTaskKey}`);
       return saved
-        ? JSON.parse(saved).map((task: Partial<WeeklyTask>) => ({
-            name: task.name || 'Untitled task',
-            done: Boolean(task.done),
-            extra: task.extra,
-            priority: task.priority || 'Normal',
-          }))
+        ? JSON.parse(saved).map((task: Partial<WeeklyTask>) => {
+            const isProviderGoal = task.name?.includes('Healing Directory providers');
+            const isStudioGoal = task.name?.includes('Daily Session studios');
+            return {
+              name: isProviderGoal
+                ? 'Reach out to new Healing Directory providers'
+                : isStudioGoal
+                  ? 'Reach out to new Daily Session studios'
+                  : task.name || 'Untitled task',
+              done: Boolean(task.done),
+              extra: task.extra,
+              priority: isProviderGoal || isStudioGoal ? 'High' : task.priority || 'Normal',
+              goal: isProviderGoal ? 15 : isStudioGoal ? 5 : task.goal,
+              progress: task.progress || 0,
+            };
+          })
         : baselineTasks;
     } catch {
       return baselineTasks;
@@ -344,14 +351,14 @@ function Dashboard({
   add: () => void;
 }) {
   const count = (s: string) => leads.filter((x) => x.status === s).length;
-  const completedTasks = tasks.filter((task) => task.done).length;
+  const completedTasks = tasks.filter((task) => task.done || (task.goal && (task.progress || 0) >= task.goal)).length;
   const remainingTasks = tasks.length - completedTasks;
   return (
     <>
       <Header
         eyebrow="THURSDAY · SEPTEMBER 3"
-        title="Good evening, Tiffany."
-        sub="Here’s what’s moving across both brands."
+        title="Tiffany & Xachil"
+        sub="Contacts, weekly outreach, and follow ups."
         action={
           <button className="primary add-prominent" onClick={add}>
             <Plus size={17} /> Add contact
@@ -381,8 +388,8 @@ function Dashboard({
         <section className="priority-card dark">
           <div className="card-head">
             <div>
-              <p className="eyebrow coral">TODAY’S FOCUS</p>
-              <h2>Keep the warm leads warm.</h2>
+              <p className="eyebrow coral">FOLLOW UPS</p>
+              <h2>{count('Follow Up')} waiting</h2>
             </div>
             <span>{count('Follow Up')} open</span>
           </div>
@@ -394,14 +401,6 @@ function Dashboard({
             <button onClick={() => open('Follow ups')}>
               Start follow ups <ArrowUpRight size={16} />
             </button>
-          </div>
-          <div className="focus-meta">
-            <span>
-              <Clock3 size={15} /> Nothing gets lost
-            </span>
-            <span>
-              <CalendarDays size={15} /> One shared queue
-            </span>
           </div>
         </section>
         <section className="week-card">
@@ -417,7 +416,7 @@ function Dashboard({
               <i className={task.priority === 'High' ? 'high' : ''} />
               <div>
                 <strong>{task.name}</strong>
-                <small>{task.priority} priority · {task.done ? 'Completed' : 'Open'}</small>
+                <small>{task.goal ? `${task.progress || 0}/${task.goal} reached` : task.done ? 'Completed' : 'Open'}</small>
               </div>
             </div>
           ))}
@@ -440,16 +439,6 @@ function Dashboard({
           accent
           open={() => open('Pipeline')}
         />
-        <section className="anytime">
-          <div>
-            <CheckCircle2 size={20} />
-            <div>
-              <p className="eyebrow">EXTRA TIME?</p>
-              <h3>There’s always something useful to pick up.</h3>
-            </div>
-          </div>
-          <button onClick={() => open('Tasks')}>Browse anytime tasks →</button>
-        </section>
       </div>
     </>
   );
@@ -956,10 +945,17 @@ function prettyDate(date: Date) {
   });
 }
 type TaskPriority = 'High' | 'Normal' | 'Low';
-type WeeklyTask = { name: string; done: boolean; priority: TaskPriority; extra?: boolean };
+type WeeklyTask = {
+  name: string;
+  done: boolean;
+  priority: TaskPriority;
+  extra?: boolean;
+  goal?: number;
+  progress?: number;
+};
 const baselineTasks: WeeklyTask[] = [
-  { name: 'Find The Healing Directory providers', done: false, priority: 'Normal' },
-  { name: 'Find The Daily Session studios', done: false, priority: 'Normal' },
+  { name: 'Reach out to new Healing Directory providers', done: false, priority: 'High', goal: 15, progress: 0 },
+  { name: 'Reach out to new Daily Session studios', done: false, priority: 'High', goal: 5, progress: 0 },
   { name: 'Create content', done: false, priority: 'Low' },
   { name: 'Engage with new applicants', done: false, priority: 'High' },
 ];
@@ -975,7 +971,10 @@ function Tasks({ tasks, setTasks }: { tasks: WeeklyTask[]; setTasks: (tasks: Wee
     setTasks([...tasks, { name: newTask.trim(), done: false, priority: newPriority, extra: true }]);
     setNewTask('');
   };
-  const completed = tasks.filter((task) => task.done).length;
+  const isComplete = (task: WeeklyTask) => task.done || Boolean(task.goal && (task.progress || 0) >= task.goal);
+  const completed = tasks.filter(isComplete).length;
+  const updateTask = (index: number, changes: Partial<WeeklyTask>) =>
+    setTasks(tasks.map((task, taskIndex) => taskIndex === index ? { ...task, ...changes } : task));
   const visibleTasks = priorityFilter === 'All' ? tasks : tasks.filter((task) => task.priority === priorityFilter);
   return (
     <>
@@ -1029,24 +1028,34 @@ function Tasks({ tasks, setTasks }: { tasks: WeeklyTask[]; setTasks: (tasks: Wee
           </div>
           {visibleTasks.map((t) => {
             const i = tasks.indexOf(t);
+            const done = isComplete(t);
             return (
-            <button
-              className={`task-row ${t.done ? 'done' : ''}`}
+            <div
+              className={`task-row ${done ? 'done' : ''}`}
               key={t.name}
-              onClick={() =>
-                setTasks(
-                  tasks.map((x, j) => (j === i ? { ...x, done: !x.done } : x)),
-                )
-              }
             >
-              <span>{t.done ? '✓' : ''}</span>
+              <button className="task-check" aria-label={`Mark ${t.name} ${done ? 'incomplete' : 'complete'}`} onClick={() => updateTask(i, t.goal ? { done: false, progress: done ? 0 : t.goal } : { done: !done })}>
+                {done ? '✓' : ''}
+              </button>
               <div>
                 <strong>{t.name}</strong>
                 <small>
-                  {t.priority} priority · {t.extra ? 'Added for this week' : 'Weekly baseline'}
+                  {t.goal ? `${t.progress || 0} of ${t.goal} reached` : t.extra ? 'Added for this week' : 'Weekly task'}
                 </small>
               </div>
-            </button>
+              {t.goal && (
+                <div className="goal-stepper">
+                  <button aria-label={`Remove one from ${t.name}`} onClick={() => updateTask(i, { progress: Math.max(0, (t.progress || 0) - 1), done: false })}>−</button>
+                  <strong>{t.progress || 0}/{t.goal}</strong>
+                  <button aria-label={`Add one to ${t.name}`} onClick={() => updateTask(i, { progress: Math.min(t.goal || 0, (t.progress || 0) + 1) })}>+</button>
+                </div>
+              )}
+              <select className="task-priority-select" value={t.priority} onChange={(event) => updateTask(i, { priority: event.target.value as TaskPriority })} aria-label={`Priority for ${t.name}`}>
+                <option>High</option>
+                <option>Normal</option>
+                <option>Low</option>
+              </select>
+            </div>
             );
           })}
       </section>
@@ -1304,10 +1313,7 @@ function AddModal({
           <X size={18} />
         </button>
         <p className="eyebrow">NEW CONTACT</p>
-        <h2>Add someone in seconds</h2>
-        <p className="modal-helper">
-          Name is the only required field. You can fill in the rest later.
-        </p>
+        <h2>Add contact</h2>
         <label>
           Contact or account name
           <input
