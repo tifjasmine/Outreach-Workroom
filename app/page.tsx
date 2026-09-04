@@ -274,7 +274,7 @@ export default function Home() {
             add={() => setAddOpen(true)}
           />
         ) : view === 'Tasks' ? (
-          <Tasks tasks={tasks} setTasks={setTasks} />
+          <Tasks />
         ) : view === 'Hours' ? (
           <Hours />
         ) : view === 'Settings' ? (
@@ -921,71 +921,90 @@ function ContactDetail({
   );
 }
 
-function Tasks({
-  tasks,
-  setTasks,
-}: {
-  tasks: { name: string; meta: string; done: boolean }[];
-  setTasks: (x: { name: string; meta: string; done: boolean }[]) => void;
-}) {
+function sundayOf(date: Date) {
+  const sunday = new Date(date);
+  sunday.setHours(0, 0, 0, 0);
+  sunday.setDate(sunday.getDate() - sunday.getDay());
+  return sunday;
+}
+function dateKey(date: Date) {
+  return date.toISOString().slice(0, 10);
+}
+function prettyDate(date: Date) {
+  return date.toLocaleDateString('en-US', {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
+type WeeklyTask = { name: string; done: boolean; extra?: boolean };
+const baselineTasks: WeeklyTask[] = [
+  { name: 'Find The Healing Directory providers', done: false },
+  { name: 'Find The Daily Session studios', done: false },
+  { name: 'Create content', done: false },
+  { name: 'Engage with new applicants', done: false },
+];
+function Tasks() {
+  const currentSunday = sundayOf(new Date());
+  const currentKey = dateKey(currentSunday);
+  const previousSunday = new Date(currentSunday);
+  previousSunday.setDate(previousSunday.getDate() - 7);
   const [newTask, setNewTask] = useState('');
-  const add = () => {
-    if (newTask) {
-      setTasks([
-        ...tasks,
-        { name: newTask, meta: 'Normal · This week', done: false },
-      ]);
-      setNewTask('');
+  const [tasks, setTasks] = useState<WeeklyTask[]>(() => {
+    try {
+      const saved = localStorage.getItem(`outreach-tasks-${currentKey}`);
+      return saved ? JSON.parse(saved) : baselineTasks;
+    } catch {
+      return baselineTasks;
     }
+  });
+  useEffect(() => {
+    localStorage.setItem(`outreach-tasks-${currentKey}`, JSON.stringify(tasks));
+  }, [tasks, currentKey]);
+  const add = () => {
+    if (!newTask.trim()) return;
+    setTasks([...tasks, { name: newTask.trim(), done: false, extra: true }]);
+    setNewTask('');
   };
+  const completed = tasks.filter((task) => task.done).length;
   return (
     <>
       <Header
-        eyebrow="WEEK OF AUGUST 31"
-        title="Tasks & responsibilities"
-        sub="Weekly priorities first. Useful backup work is always waiting."
+        eyebrow={`SUNDAY–SATURDAY · WEEK OF ${prettyDate(currentSunday).toUpperCase()}`}
+        title="This week’s work"
+        sub="The current week stays in focus. Past weeks remain visible and read-only."
         action={
-          <button className="primary" onClick={add}>
+          <button
+            className="primary"
+            onClick={() => document.getElementById('new-week-task')?.focus()}
+          >
             + Add weekly task
           </button>
         }
       />
-      <div className="week-nav">
-        <button>← Previous week</button>
-        <strong>This week</strong>
-        <button>Next week →</button>
-      </div>
-      <div className="tasks-grid">
-        <section className="task-panel">
+      <div className="weekly-focus">
+        <section className="task-panel current-week-panel">
           <div className="section-title">
             <div>
-              <p className="eyebrow">THIS WEEK</p>
+              <p className="eyebrow coral">CURRENT WEEK · ENDS SATURDAY</p>
               <h2>
-                {tasks.filter((x) => x.done).length} of {tasks.length} completed
+                {completed} of {tasks.length} completed
               </h2>
             </div>
-            <span>
-              {Math.round(
-                (tasks.filter((x) => x.done).length / tasks.length) * 100,
-              )}
-              %
-            </span>
+            <span>{Math.round((completed / tasks.length) * 100)}%</span>
           </div>
           <div className="task-progress">
-            <i
-              style={{
-                width: `${(tasks.filter((x) => x.done).length / tasks.length) * 100}%`,
-              }}
-            />
+            <i style={{ width: `${(completed / tasks.length) * 100}%` }} />
           </div>
           <div className="quick-add">
             <input
+              id="new-week-task"
               value={newTask}
               onChange={(e) => setNewTask(e.target.value)}
-              placeholder="Add a responsibility…"
+              placeholder="Add something extra for this week…"
               onKeyDown={(e) => e.key === 'Enter' && add()}
             />
-            <button onClick={add}>Add</button>
+            <button onClick={add}>Add to this week</button>
           </div>
           {tasks.map((t, i) => (
             <button
@@ -1000,72 +1019,177 @@ function Tasks({
               <span>{t.done ? '✓' : ''}</span>
               <div>
                 <strong>{t.name}</strong>
-                <small>{t.meta}</small>
+                <small>
+                  {t.extra ? 'Added for this week' : 'Weekly baseline'}
+                </small>
               </div>
-              <b>•••</b>
             </button>
           ))}
         </section>
-        <section className="task-panel anytime-panel">
-          <div className="section-title">
-            <div>
-              <p className="eyebrow coral">ANYTIME TASKS</p>
-              <h2>Finished the priorities?</h2>
-            </div>
-          </div>
-          <p className="helper">
-            Pick something from here. These stay available after each work
-            session.
+        <aside className="week-guide">
+          <p className="eyebrow">HOW IT WORKS</p>
+          <h2>Fresh focus every Sunday.</h2>
+          <p>
+            The four baseline responsibilities appear automatically. Add special
+            priorities only when you need them.
           </p>
-          {[
-            'Find new TDS studios',
-            'Research new THD providers',
-            'Engage with target accounts',
-            'Look for local event ideas',
-          ].map((x, i) => (
-            <article className="any-task" key={x}>
-              <div>
-                <strong>{x}</strong>
-                <small>
-                  {
-                    [
-                      '30 min · The Daily Session',
-                      'Open ended · Healing Directory',
-                      '15 min · Both brands',
-                      '30 min · The Daily Session',
-                    ][i]
-                  }
-                </small>
-              </div>
-              <button>Work on this</button>
-            </article>
-          ))}
-        </section>
+          <div>
+            <strong>Sunday</strong>
+            <span>New week opens</span>
+          </div>
+          <div>
+            <strong>Saturday</strong>
+            <span>Week locks at midnight</span>
+          </div>
+        </aside>
       </div>
+      <section className="week-history">
+        <p className="eyebrow">PAST WEEKS</p>
+        <details>
+          <summary>
+            <span>
+              <strong>Week of {prettyDate(previousSunday)}</strong>
+              <small>4 completed · Locked</small>
+            </span>
+            <b>View work</b>
+          </summary>
+          {baselineTasks.map((task) => (
+            <div className="locked-task" key={task.name}>
+              <span>✓</span>
+              {task.name}
+              <small>Locked</small>
+            </div>
+          ))}
+        </details>
+      </section>
     </>
   );
 }
 function Hours() {
+  type HourLog = {
+    weekOf: string;
+    date: string;
+    hours: number;
+    brands: string;
+    notes: string;
+    paid: boolean;
+  };
+  const [showForm, setShowForm] = useState(false);
+  const [logs, setLogs] = useState<HourLog[]>(() => {
+    try {
+      return (
+        JSON.parse(localStorage.getItem('outreach-hours') || 'null') || [
+          {
+            weekOf: dateKey(sundayOf(new Date())),
+            date: '2026-09-02',
+            hours: 1,
+            brands: 'The Daily Session + The Healing Directory',
+            notes: 'Interview',
+            paid: true,
+          },
+        ]
+      );
+    } catch {
+      return [];
+    }
+  });
+  useEffect(
+    () => localStorage.setItem('outreach-hours', JSON.stringify(logs)),
+    [logs],
+  );
+  const total = logs.reduce((sum, log) => sum + Number(log.hours), 0);
+  const addHours = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const date = new Date(String(form.get('date')) + 'T12:00:00');
+    setLogs([
+      {
+        weekOf: dateKey(sundayOf(date)),
+        date: String(form.get('date')),
+        hours: Number(form.get('hours')),
+        brands: String(form.get('brand')),
+        notes: String(form.get('notes')),
+        paid: false,
+      },
+      ...logs,
+    ]);
+    setShowForm(false);
+  };
   return (
     <>
       <Header
         eyebrow="TIME & ACTIVITY"
         title="Hours"
         sub="A simple record of focused work across both brands."
-        action={<button className="primary">Start timer</button>}
+        action={
+          <button className="primary" onClick={() => setShowForm(!showForm)}>
+            + Add hours
+          </button>
+        }
       />
+      {showForm && (
+        <form className="hours-form" onSubmit={addHours}>
+          <label>
+            Date
+            <input
+              required
+              name="date"
+              type="date"
+              defaultValue={dateKey(new Date())}
+            />
+          </label>
+          <label>
+            Total hours
+            <input
+              required
+              name="hours"
+              type="number"
+              min="0.25"
+              step="0.25"
+              placeholder="1.5"
+            />
+          </label>
+          <label>
+            Brand
+            <select name="brand">
+              <option>The Daily Session</option>
+              <option>The Healing Directory</option>
+              <option>Both</option>
+            </select>
+          </label>
+          <label>
+            Shift notes
+            <input name="notes" placeholder="What was worked on?" />
+          </label>
+          <button className="primary">Save hours</button>
+        </form>
+      )}
       <div className="hours-summary">
         <div>
           <small>THIS WEEK</small>
-          <strong>12h 30m</strong>
+          <strong>{total.toFixed(2)}h</strong>
         </div>
         <div>
           <small>THE DAILY SESSION</small>
-          <strong>6h 45m</strong>
+          <strong>
+            {logs
+              .filter((x) => x.brands.includes('Daily') || x.brands === 'Both')
+              .reduce((s, x) => s + x.hours, 0)
+              .toFixed(2)}
+            h
+          </strong>
         </div>
         <div>
           <small>HEALING DIRECTORY</small>
-          <strong>5h 45m</strong>
+          <strong>
+            {logs
+              .filter(
+                (x) => x.brands.includes('Healing') || x.brands === 'Both',
+              )
+              .reduce((s, x) => s + x.hours, 0)
+              .toFixed(2)}
+            h
+          </strong>
         </div>
       </div>
       <section className="log-card">
@@ -1074,19 +1198,36 @@ function Hours() {
             <p className="eyebrow">RECENT ACTIVITY</p>
             <h2>Time log</h2>
           </div>
-          <button>+ Add hours</button>
+          <button onClick={() => setShowForm(!showForm)}>+ Add hours</button>
         </div>
-        {[
-          ['Sep 3', 'TDS outreach', '2h 15m'],
-          ['Sep 2', 'THD follow ups', '1h 30m'],
-          ['Sep 1', 'Research + engagement', '3h 00m'],
-          ['Aug 31', 'Weekly planning', '1h 15m'],
-        ].map((x) => (
-          <div className="log-row" key={x[0]}>
-            <span>{x[0]}</span>
-            <strong>{x[1]}</strong>
-            <em>{x[2]}</em>
-            <b>Approved</b>
+        <div className="hours-table-head">
+          <span>Week Of</span>
+          <span>Date</span>
+          <span>Total Hours</span>
+          <span>Brand</span>
+          <span>Shift Notes</span>
+          <span>Paid</span>
+        </div>
+        {logs.map((x, index) => (
+          <div className="hours-table-row" key={`${x.date}-${index}`}>
+            <span>{x.weekOf}</span>
+            <span>{x.date}</span>
+            <strong>{x.hours}</strong>
+            <span>{x.brands}</span>
+            <span>{x.notes || '—'}</span>
+            <label>
+              <input
+                type="checkbox"
+                checked={x.paid}
+                onChange={() =>
+                  setLogs(
+                    logs.map((log, i) =>
+                      i === index ? { ...log, paid: !log.paid } : log,
+                    ),
+                  )
+                }
+              />
+            </label>
           </div>
         ))}
       </section>
