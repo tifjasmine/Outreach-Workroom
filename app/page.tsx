@@ -303,10 +303,12 @@ export default function Home() {
           />
         )}
       </section>
-      <button className="floating-add" onClick={() => setAddOpen(true)}>
-        <Plus size={20} />
-        <span>Add contact</span>
-      </button>
+      {!['Tasks', 'Hours', 'Settings'].includes(view) && (
+        <button className="floating-add" onClick={() => setAddOpen(true)}>
+          <Plus size={20} />
+          <span>Add contact</span>
+        </button>
+      )}
       {addOpen && <AddModal close={() => setAddOpen(false)} submit={addLead} />}{' '}
       {selected && (
         <ContactDetail
@@ -970,7 +972,7 @@ function Tasks({ tasks, setTasks }: { tasks: WeeklyTask[]; setTasks: (tasks: Wee
   const previousKey = dateKey(previousSunday);
   const [newTask, setNewTask] = useState('');
   const [newPriority, setNewPriority] = useState<TaskPriority>('Normal');
-  const [newBrand, setNewBrand] = useState<WeeklyTask['brand']>('The Daily Session');
+  const [brandFilter, setBrandFilter] = useState<WeeklyTask['brand']>('The Daily Session');
   const [priorityFilter, setPriorityFilter] = useState<'All' | TaskPriority>('All');
   const [previousTasks] = useState<WeeklyTask[]>(() => {
     try {
@@ -981,14 +983,15 @@ function Tasks({ tasks, setTasks }: { tasks: WeeklyTask[]; setTasks: (tasks: Wee
   });
   const add = () => {
     if (!newTask.trim()) return;
-    setTasks([...tasks, { name: newTask.trim(), brand: newBrand, done: false, priority: newPriority, extra: true }]);
+    setTasks([...tasks, { name: newTask.trim(), brand: brandFilter, done: false, priority: newPriority, extra: true }]);
     setNewTask('');
   };
   const isComplete = (task: WeeklyTask) => task.done || Boolean(task.goal && (task.progress || 0) >= task.goal);
-  const completed = tasks.filter(isComplete).length;
   const updateTask = (index: number, changes: Partial<WeeklyTask>) =>
     setTasks(tasks.map((task, taskIndex) => taskIndex === index ? { ...task, ...changes } : task));
-  const visibleTasks = priorityFilter === 'All' ? tasks : tasks.filter((task) => task.priority === priorityFilter);
+  const brandTasks = tasks.filter((task) => task.brand === brandFilter);
+  const completed = brandTasks.filter(isComplete).length;
+  const visibleTasks = priorityFilter === 'All' ? brandTasks : brandTasks.filter((task) => task.priority === priorityFilter);
   return (
     <>
       <Header
@@ -1004,6 +1007,10 @@ function Tasks({ tasks, setTasks }: { tasks: WeeklyTask[]; setTasks: (tasks: Wee
           </button>
         }
       />
+      <div className="brand-task-toggle" aria-label="Choose task brand">
+        <button className={brandFilter === 'The Daily Session' ? 'active' : ''} onClick={() => setBrandFilter('The Daily Session')}>Daily Session</button>
+        <button className={brandFilter === 'The Healing Directory' ? 'active' : ''} onClick={() => setBrandFilter('The Healing Directory')}>Healing Directory</button>
+      </div>
       <div className="task-filter-row" aria-label="Filter tasks by priority">
         {(['All', 'High', 'Normal', 'Low'] as const).map((priority) => (
           <button className={priorityFilter === priority ? 'active' : ''} onClick={() => setPriorityFilter(priority)} key={priority}>
@@ -1016,13 +1023,13 @@ function Tasks({ tasks, setTasks }: { tasks: WeeklyTask[]; setTasks: (tasks: Wee
             <div>
               <p className="eyebrow coral">CURRENT WEEK · ENDS SATURDAY</p>
               <h2>
-                {completed} of {tasks.length} completed
+                {completed} of {brandTasks.length} completed
               </h2>
             </div>
-            <span>{Math.round((completed / tasks.length) * 100)}%</span>
+            <span>{brandTasks.length ? Math.round((completed / brandTasks.length) * 100) : 0}%</span>
           </div>
           <div className="task-progress">
-            <i style={{ width: `${(completed / tasks.length) * 100}%` }} />
+            <i style={{ width: `${brandTasks.length ? (completed / brandTasks.length) * 100 : 0}%` }} />
           </div>
           <div className="quick-add">
             <input
@@ -1036,10 +1043,6 @@ function Tasks({ tasks, setTasks }: { tasks: WeeklyTask[]; setTasks: (tasks: Wee
               <option>High</option>
               <option>Normal</option>
               <option>Low</option>
-            </select>
-            <select value={newBrand} onChange={(e) => setNewBrand(e.target.value as WeeklyTask['brand'])} aria-label="New task brand">
-              <option>The Daily Session</option>
-              <option>The Healing Directory</option>
             </select>
             <button onClick={add}>Add to this week</button>
           </div>
@@ -1071,10 +1074,6 @@ function Tasks({ tasks, setTasks }: { tasks: WeeklyTask[]; setTasks: (tasks: Wee
                 <option>High</option>
                 <option>Normal</option>
                 <option>Low</option>
-              </select>
-              <select className="task-brand-select" value={t.brand} onChange={(event) => updateTask(i, { brand: event.target.value as WeeklyTask['brand'] })} aria-label={`Brand for ${t.name}`}>
-                <option value="The Daily Session">Daily Session</option>
-                <option value="The Healing Directory">Healing Directory</option>
               </select>
             </div>
             );
