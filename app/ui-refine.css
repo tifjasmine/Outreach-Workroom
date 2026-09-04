@@ -4,4 +4,72 @@
 @media (max-width: 850px) {
   .status-strip { grid-template-columns: repeat(2, 1fr); }
   .status-strip button:nth-child(5) { grid-column: auto; }
+
+  .sidebar {
+    position: sticky;
+    z-index: 9;
+    top: 0;
+    height: auto;
+    padding: 12px 14px 10px;
+    flex-wrap: wrap;
+    box-shadow: 0 6px 22px #183f3020;
+  }
+  .sidebar .profile { display: none; }
+  .sidebar nav {
+    display: flex;
+    order: 3;
+    width: 100%;
+    flex-direction: row;
+    overflow-x: auto;
+    padding-top: 10px;
+    scrollbar-width: none;
+  }
+  .sidebar nav::-webkit-scrollbar { display: none; }
+  .sidebar nav button {
+    flex: 0 0 auto;
+    padding: 9px 12px;
+    font-size: 11px;
+    white-space: nowrap;
+  }
+  .sidebar-add { margin-left: auto; }
+  .workspace { padding: 24px 16px 90px; }
+  .workspace header { margin-bottom: 22px; }
+  .workspace header p:last-child { display: block; line-height: 1.45; }
+  .contact-detail { height: 100dvh; }
+  .detail-body { overflow: auto; }
+  .detail-body > main { overflow: visible; padding: 18px; }
+  .updates { padding: 18px; }
+  .modal { padding: 24px 18px; border-radius: 18px; }
+  .quick-contact { max-height: calc(100dvh - 24px); }
+}
+
+@media (max-width: 520px) {
+  .workspace header { display: block; }
+  .workspace header > .primary,
+  .workspace header > .header-actions { margin-top: 14px; }
+  .workspace header p:last-child { font-size: 12px; }
+  .brand-mark div { display: flex; }
+  .brand-mark small { font-size: 7px; }
+  .task-panel { padding: 18px 16px; }
+  .section-title { gap: 12px; }
+  .section-title h2 { font-size: 22px; }
+  .section-title > span { font-size: 20px; }
+  .quick-add { display: grid; grid-template-columns: 1fr; }
+  .quick-add input { min-height: 44px; border-radius: 12px; }
+  .quick-add button {
+    min-height: 42px;
+    border-radius: 12px;
+    background: var(--green);
+    color: white;
+  }
+  .task-row { padding: 16px 2px; gap: 13px; }
+  .task-row > span { width: 25px; height: 25px; flex: 0 0 25px; }
+  .task-row strong { font-size: 13px; line-height: 1.35; }
+  .task-row small { font-size: 10px; }
+  .week-guide { padding: 20px; }
+  .week-guide h2 { font-size: 25px; }
+  .week-guide > p:not(.eyebrow) { margin-bottom: 14px; }
+  .week-history summary { padding: 16px; }
+  .locked-task { padding: 13px 16px; }
+  .hours-form { padding: 16px; }
 }

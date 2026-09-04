@@ -212,7 +212,7 @@ export default function Home() {
       status: String(f.get('status')),
       due: String(f.get('due') || ''),
       note: String(f.get('note') || ''),
-      addedBy: 'Tiffany',
+      addedBy: String(f.get('addedBy') || 'Tiffany'),
       updates: [],
       tasks: [],
     };
@@ -704,11 +704,6 @@ function ContactTable({
   open: (id: number) => void;
   move: (id: number, s: string) => void;
 }) {
-  const [brand, setBrand] = useState('The Daily Session');
-  const contactTypes =
-    brand === 'The Daily Session'
-      ? ['Studio', 'Independent Instructor']
-      : ['Provider', 'Group Practice'];
   return (
     <div className="table-wrap">
       <table>
@@ -1267,7 +1262,7 @@ function Settings() {
       <div className="settings-card">
         <div>
           <h3>Team</h3>
-          <p>Tiffany · Owner &nbsp;&nbsp; Assistant · Collaborator</p>
+          <p>Tiffany · Owner &nbsp;&nbsp; Xachil · Collaborator</p>
         </div>
         <button>Manage</button>
       </div>
@@ -1281,6 +1276,11 @@ function AddModal({
   close: () => void;
   submit: (e: React.FormEvent<HTMLFormElement>) => void;
 }) {
+  const [brand, setBrand] = useState('The Daily Session');
+  const contactTypes =
+    brand === 'The Daily Session'
+      ? ['Studio', 'Independent Instructor']
+      : ['Provider', 'Group Practice'];
   return (
     <div className="modal-backdrop" onMouseDown={close}>
       <form
@@ -1344,6 +1344,13 @@ function AddModal({
           <label>
             Follow-up date
             <input name="due" type="date" />
+          </label>
+          <label>
+            Added by
+            <select name="addedBy" defaultValue="Tiffany">
+              <option>Tiffany</option>
+              <option>Xachil</option>
+            </select>
           </label>
         </div>
         <label>
