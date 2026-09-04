@@ -15,6 +15,18 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: 'Outreach Workroom',
   description: 'A calm, fast outreach and task workspace for The Daily Session and The Healing Directory.',
+  metadataBase: new URL('https://outreach-workroom.buzzy-fawn-9912.chatgpt.site'),
+  openGraph: {
+    title: 'Outreach Workroom',
+    description: 'A calm home for outreach, tasks, and team momentum.',
+    images: ['/og.png'],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Outreach Workroom',
+    description: 'A calm home for outreach, tasks, and team momentum.',
+    images: ['/og.png'],
+  },
 };
 
 export default function RootLayout({
