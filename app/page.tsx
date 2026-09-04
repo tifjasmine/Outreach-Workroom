@@ -152,23 +152,22 @@ export default function Home() {
     [addOpen, setAddOpen] = useState(false),
     [selected, setSelected] = useState<number | null>(null),
     [ready, setReady] = useState(false);
-  const [tasks, setTasks] = useState([
-    {
-      name: 'Follow up with THD applicants',
-      meta: 'High priority · Due today',
-      done: false,
-    },
-    {
-      name: 'Reach out to 15 TDS studios',
-      meta: 'Normal · 9 of 15 complete',
-      done: false,
-    },
-    {
-      name: 'Research five Philly events',
-      meta: 'Normal · Due Friday',
-      done: true,
-    },
-  ]);
+  const currentTaskKey = dateKey(sundayOf(new Date()));
+  const [weeklyTasks, setWeeklyTasks] = useState<WeeklyTask[]>(() => {
+    try {
+      const saved = localStorage.getItem(`outreach-tasks-${currentTaskKey}`);
+      return saved
+        ? JSON.parse(saved).map((task: Partial<WeeklyTask>) => ({
+            name: task.name || 'Untitled task',
+            done: Boolean(task.done),
+            extra: task.extra,
+            priority: task.priority || 'Normal',
+          }))
+        : baselineTasks;
+    } catch {
+      return baselineTasks;
+    }
+  });
   useEffect(() => {
     try {
       const saved = localStorage.getItem('outreach-workroom-contacts');
@@ -199,6 +198,12 @@ export default function Home() {
     if (!ready) return;
     localStorage.setItem('outreach-workroom-contacts', JSON.stringify(leads));
   }, [leads, ready]);
+  useEffect(() => {
+    localStorage.setItem(
+      `outreach-tasks-${currentTaskKey}`,
+      JSON.stringify(weeklyTasks),
+    );
+  }, [weeklyTasks, currentTaskKey]);
   const addLead = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
@@ -224,13 +229,13 @@ export default function Home() {
   return (
     <main className="app-shell">
       <aside className="sidebar">
-        <div className="brand-mark">
+        <button className="brand-mark" onClick={() => setView('Overview')} aria-label="Open home page">
           <span>O</span>
           <div>
             <strong>Outreach</strong>
             <small>WORKROOM</small>
           </div>
-        </div>
+        </button>
         <button className="sidebar-add" onClick={() => setAddOpen(true)}>
           <Plus size={17} /> Add contact
         </button>
@@ -264,6 +269,7 @@ export default function Home() {
         {view === 'Overview' ? (
           <Dashboard
             leads={leads}
+            tasks={weeklyTasks}
             open={setView}
             add={() => setAddOpen(true)}
           />
@@ -274,7 +280,7 @@ export default function Home() {
             add={() => setAddOpen(true)}
           />
         ) : view === 'Tasks' ? (
-          <Tasks />
+          <Tasks tasks={weeklyTasks} setTasks={setWeeklyTasks} />
         ) : view === 'Hours' ? (
           <Hours />
         ) : view === 'Settings' ? (
@@ -328,14 +334,18 @@ function Header({
 }
 function Dashboard({
   leads,
+  tasks,
   open,
   add,
 }: {
   leads: Lead[];
+  tasks: WeeklyTask[];
   open: (v: string) => void;
   add: () => void;
 }) {
   const count = (s: string) => leads.filter((x) => x.status === s).length;
+  const completedTasks = tasks.filter((task) => task.done).length;
+  const remainingTasks = tasks.length - completedTasks;
   return (
     <>
       <Header
@@ -398,24 +408,19 @@ function Dashboard({
           <div className="card-head">
             <div>
               <p className="eyebrow">THIS WEEK</p>
-              <h2>4 tasks remaining</h2>
+              <h2>{remainingTasks} tasks remaining</h2>
             </div>
-            <span className="progress">3 of 7</span>
+            <span className="progress">{completedTasks} of {tasks.length}</span>
           </div>
-          <div className="task">
-            <i className="high" />
-            <div>
-              <strong>Follow up with THD applicants</strong>
-              <small>High priority · Due today</small>
+          {tasks.slice(0, 2).map((task) => (
+            <div className="task" key={task.name}>
+              <i className={task.priority === 'High' ? 'high' : ''} />
+              <div>
+                <strong>{task.name}</strong>
+                <small>{task.priority} priority · {task.done ? 'Completed' : 'Open'}</small>
+              </div>
             </div>
-          </div>
-          <div className="task">
-            <i />
-            <div>
-              <strong>Reach out to 15 TDS studios</strong>
-              <small>Normal · 9 of 15 complete</small>
-            </div>
-          </div>
+          ))}
           <button className="text-link" onClick={() => open('Tasks')}>
             View all tasks →
           </button>
@@ -508,11 +513,16 @@ function Outreach({
   open: (id: number) => void;
 }) {
   const [mode, setMode] = useState('Pipeline'),
-    [brand, setBrand] = useState('All');
+    [brand, setBrand] = useState('All'),
+    [stageFilter, setStageFilter] = useState('All'),
+    [search, setSearch] = useState(''),
+    [filtersOpen, setFiltersOpen] = useState(false);
   const filtered = leads.filter(
     (x) =>
       (brand === 'All' || x.brand === brand) &&
-      (title !== 'Follow ups' || x.status === 'Follow Up'),
+      (stageFilter === 'All' || x.status === stageFilter) &&
+      (title !== 'Follow ups' || x.status === 'Follow Up') &&
+      `${x.name} ${x.handle} ${x.email}`.toLowerCase().includes(search.toLowerCase()),
   );
   const move = (id: number, status: string) =>
     setLeads(leads.map((x) => (x.id === id ? { ...x, status } : x)));
@@ -531,14 +541,14 @@ function Outreach({
       <div className="toolbar">
         <label>
           <Search size={16} />
-          <input placeholder="Search contacts…" />
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search contacts…" />
         </label>
         <select value={brand} onChange={(e) => setBrand(e.target.value)}>
           <option>All</option>
           <option>The Daily Session</option>
           <option>The Healing Directory</option>
         </select>
-        <button>
+        <button className={filtersOpen ? 'selected' : ''} onClick={() => setFiltersOpen(!filtersOpen)}>
           <Filter size={15} /> Filter
         </button>
         <div className="segmented">
@@ -556,6 +566,19 @@ function Outreach({
           </button>
         </div>
       </div>
+      {filtersOpen && (
+        <div className="filter-bar">
+          <label>
+            Stage
+            <select value={stageFilter} onChange={(e) => setStageFilter(e.target.value)}>
+              <option>All</option>
+              {statuses.map((status) => <option key={status}>{status}</option>)}
+            </select>
+          </label>
+          <span>{filtered.length} matching contacts</span>
+          <button onClick={() => { setStageFilter('All'); setBrand('All'); setSearch(''); }}>Clear filters</button>
+        </div>
+      )}
       {mode === 'Pipeline' ? (
         <div className="pipeline">
           {statuses.map((status) => (
@@ -724,12 +747,12 @@ function ContactTable({
         <tbody>
           {leads.map((x) => (
             <tr key={x.id} onClick={() => open(x.id)}>
-              <td>
+              <td data-label="Contact">
                 <strong>{x.name}</strong>
               </td>
-              <td>{x.handle || x.email}</td>
-              <td>{x.brand}</td>
-              <td>
+              <td data-label="Instagram / Email">{x.handle || x.email}</td>
+              <td data-label="Brand">{x.brand}</td>
+              <td data-label="Stage">
                 <select
                   value={x.status}
                   onClick={(e) => e.stopPropagation()}
@@ -740,8 +763,8 @@ function ContactTable({
                   ))}
                 </select>
               </td>
-              <td>{x.due || '—'}</td>
-              <td>{x.addedBy}</td>
+              <td data-label="Follow Up">{x.due || '—'}</td>
+              <td data-label="Added By">{x.addedBy}</td>
             </tr>
           ))}
         </tbody>
@@ -932,42 +955,34 @@ function prettyDate(date: Date) {
     year: 'numeric',
   });
 }
-type WeeklyTask = { name: string; done: boolean; extra?: boolean };
+type TaskPriority = 'High' | 'Normal' | 'Low';
+type WeeklyTask = { name: string; done: boolean; priority: TaskPriority; extra?: boolean };
 const baselineTasks: WeeklyTask[] = [
-  { name: 'Find The Healing Directory providers', done: false },
-  { name: 'Find The Daily Session studios', done: false },
-  { name: 'Create content', done: false },
-  { name: 'Engage with new applicants', done: false },
+  { name: 'Find The Healing Directory providers', done: false, priority: 'Normal' },
+  { name: 'Find The Daily Session studios', done: false, priority: 'Normal' },
+  { name: 'Create content', done: false, priority: 'Low' },
+  { name: 'Engage with new applicants', done: false, priority: 'High' },
 ];
-function Tasks() {
+function Tasks({ tasks, setTasks }: { tasks: WeeklyTask[]; setTasks: (tasks: WeeklyTask[]) => void }) {
   const currentSunday = sundayOf(new Date());
-  const currentKey = dateKey(currentSunday);
   const previousSunday = new Date(currentSunday);
   previousSunday.setDate(previousSunday.getDate() - 7);
   const [newTask, setNewTask] = useState('');
-  const [tasks, setTasks] = useState<WeeklyTask[]>(() => {
-    try {
-      const saved = localStorage.getItem(`outreach-tasks-${currentKey}`);
-      return saved ? JSON.parse(saved) : baselineTasks;
-    } catch {
-      return baselineTasks;
-    }
-  });
-  useEffect(() => {
-    localStorage.setItem(`outreach-tasks-${currentKey}`, JSON.stringify(tasks));
-  }, [tasks, currentKey]);
+  const [newPriority, setNewPriority] = useState<TaskPriority>('Normal');
+  const [priorityFilter, setPriorityFilter] = useState<'All' | TaskPriority>('All');
   const add = () => {
     if (!newTask.trim()) return;
-    setTasks([...tasks, { name: newTask.trim(), done: false, extra: true }]);
+    setTasks([...tasks, { name: newTask.trim(), done: false, priority: newPriority, extra: true }]);
     setNewTask('');
   };
   const completed = tasks.filter((task) => task.done).length;
+  const visibleTasks = priorityFilter === 'All' ? tasks : tasks.filter((task) => task.priority === priorityFilter);
   return (
     <>
       <Header
         eyebrow={`SUNDAY–SATURDAY · WEEK OF ${prettyDate(currentSunday).toUpperCase()}`}
-        title="This week’s work"
-        sub="The current week stays in focus. Past weeks remain visible and read-only."
+        title="This week’s checklist"
+        sub="Check off each task as it’s completed. Add extras whenever they come up."
         action={
           <button
             className="primary"
@@ -977,8 +992,14 @@ function Tasks() {
           </button>
         }
       />
-      <div className="weekly-focus">
-        <section className="task-panel current-week-panel">
+      <div className="task-filter-row" aria-label="Filter tasks by priority">
+        {(['All', 'High', 'Normal', 'Low'] as const).map((priority) => (
+          <button className={priorityFilter === priority ? 'active' : ''} onClick={() => setPriorityFilter(priority)} key={priority}>
+            {priority}{priority !== 'All' ? ' priority' : ''}
+          </button>
+        ))}
+      </div>
+      <section className="task-panel current-week-panel tasks-only">
           <div className="section-title">
             <div>
               <p className="eyebrow coral">CURRENT WEEK · ENDS SATURDAY</p>
@@ -999,9 +1020,16 @@ function Tasks() {
               placeholder="Add something extra for this week…"
               onKeyDown={(e) => e.key === 'Enter' && add()}
             />
+            <select value={newPriority} onChange={(e) => setNewPriority(e.target.value as TaskPriority)} aria-label="New task priority">
+              <option>High</option>
+              <option>Normal</option>
+              <option>Low</option>
+            </select>
             <button onClick={add}>Add to this week</button>
           </div>
-          {tasks.map((t, i) => (
+          {visibleTasks.map((t) => {
+            const i = tasks.indexOf(t);
+            return (
             <button
               className={`task-row ${t.done ? 'done' : ''}`}
               key={t.name}
@@ -1015,29 +1043,13 @@ function Tasks() {
               <div>
                 <strong>{t.name}</strong>
                 <small>
-                  {t.extra ? 'Added for this week' : 'Weekly baseline'}
+                  {t.priority} priority · {t.extra ? 'Added for this week' : 'Weekly baseline'}
                 </small>
               </div>
             </button>
-          ))}
-        </section>
-        <aside className="week-guide">
-          <p className="eyebrow">HOW IT WORKS</p>
-          <h2>Fresh focus every Sunday.</h2>
-          <p>
-            The four baseline responsibilities appear automatically. Add special
-            priorities only when you need them.
-          </p>
-          <div>
-            <strong>Sunday</strong>
-            <span>New week opens</span>
-          </div>
-          <div>
-            <strong>Saturday</strong>
-            <span>Week locks at midnight</span>
-          </div>
-        </aside>
-      </div>
+            );
+          })}
+      </section>
       <section className="week-history">
         <p className="eyebrow">PAST WEEKS</p>
         <details>

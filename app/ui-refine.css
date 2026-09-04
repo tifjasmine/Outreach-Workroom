@@ -1,5 +1,19 @@
 .status-strip { grid-template-columns: repeat(4, 1fr); }
 .quick-contact input[type='date'] { color-scheme: light; min-height: 39px; }
+.brand-mark { width: 100%; background: transparent; border: 0; color: inherit; text-align: left; cursor: pointer; }
+.filter-bar { display: flex; align-items: end; gap: 12px; margin: -10px 0 18px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--paper); }
+.filter-bar label { display: flex; flex-direction: column; gap: 6px; color: var(--muted); font-size: 9px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; }
+.filter-bar select { min-width: 190px; border: 1px solid var(--line); border-radius: 9px; background: white; padding: 9px 11px; color: var(--ink); }
+.filter-bar span { margin-left: auto; align-self: center; color: var(--muted); font-size: 11px; }
+.filter-bar button { align-self: center; border: 0; background: transparent; color: var(--green); font-size: 11px; font-weight: 700; }
+.toolbar > button.selected { background: var(--green); color: white; border-color: var(--green); }
+.tasks-only { max-width: 920px; }
+.task-progress { margin: 14px 0 20px; }
+.task-filter-row { display: flex; gap: 7px; margin: -4px 0 14px; overflow-x: auto; scrollbar-width: none; }
+.task-filter-row::-webkit-scrollbar { display: none; }
+.task-filter-row button { flex: 0 0 auto; border: 1px solid var(--line); border-radius: 999px; background: var(--paper); padding: 9px 13px; color: var(--muted); font-size: 10px; }
+.task-filter-row button.active { background: var(--green); border-color: var(--green); color: white; }
+.quick-add select { border: 1px solid var(--line); border-radius: 999px; background: white; padding: 0 12px; color: var(--ink); }
 
 @media (max-width: 850px) {
   .status-strip { grid-template-columns: repeat(2, 1fr); }
@@ -41,6 +55,17 @@
   .updates { padding: 18px; }
   .modal { padding: 24px 18px; border-radius: 18px; }
   .quick-contact { max-height: calc(100dvh - 24px); }
+  .filter-bar { align-items: stretch; flex-direction: column; margin-top: -8px; }
+  .filter-bar select { width: 100%; min-width: 0; }
+  .filter-bar span { margin: 0; }
+  .table-wrap { overflow: visible; border: 0; background: transparent; }
+  .table-wrap table, .table-wrap tbody { display: block; width: 100%; }
+  .table-wrap thead { display: none; }
+  .table-wrap tr { display: block; margin-bottom: 12px; overflow: hidden; border: 1px solid var(--line); border-radius: 15px; background: var(--paper); }
+  .table-wrap td { display: grid; grid-template-columns: 112px minmax(0, 1fr); align-items: center; gap: 10px; padding: 11px 14px; border-bottom: 1px solid var(--line); white-space: normal; }
+  .table-wrap td:last-child { border-bottom: 0; }
+  .table-wrap td::before { content: attr(data-label); color: var(--muted); font-size: 8px; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; }
+  .table-wrap td select { width: 100%; }
 }
 
 @media (max-width: 520px) {
@@ -48,6 +73,16 @@
   .workspace header > .primary,
   .workspace header > .header-actions { margin-top: 14px; }
   .workspace header p:last-child { font-size: 12px; }
+  .modal-backdrop { align-items: end; padding: 0 8px 8px; }
+  .quick-contact { width: 100%; max-height: 88dvh; padding: 20px 16px; }
+  .quick-contact h2 { margin-bottom: 18px; }
+  .quick-contact .modal-helper { margin-bottom: 14px; }
+  .quick-contact .form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .quick-contact label { min-width: 0; margin-bottom: 10px; }
+  .quick-contact input,
+  .quick-contact select,
+  .quick-contact textarea { width: 100%; min-width: 0; padding: 9px 10px; }
+  .quick-contact textarea { min-height: 62px; }
   .brand-mark div { display: flex; }
   .brand-mark small { font-size: 7px; }
   .task-panel { padding: 18px 16px; }
@@ -56,6 +91,7 @@
   .section-title > span { font-size: 20px; }
   .quick-add { display: grid; grid-template-columns: 1fr; }
   .quick-add input { min-height: 44px; border-radius: 12px; }
+  .quick-add select { min-height: 42px; border-radius: 12px; }
   .quick-add button {
     min-height: 42px;
     border-radius: 12px;
