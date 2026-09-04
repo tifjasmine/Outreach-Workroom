@@ -13,6 +13,7 @@
 .task-filter-row::-webkit-scrollbar { display: none; }
 .task-filter-row button { flex: 0 0 auto; border: 1px solid var(--line); border-radius: 999px; background: var(--paper); padding: 9px 13px; color: var(--muted); font-size: 10px; }
 .task-filter-row button.active { background: var(--green); border-color: var(--green); color: white; }
+.week-count { color: var(--green); font-size: 11px; font-weight: 700; }
 .quick-add select { border: 1px solid var(--line); border-radius: 999px; background: white; padding: 0 12px; color: var(--ink); }
 .pipeline { grid-template-columns: repeat(4, minmax(220px, 1fr)); }
 .task-row { cursor: default; }
@@ -22,6 +23,7 @@
 .goal-stepper button { width: 28px; height: 28px; border: 1px solid var(--line); border-radius: 50%; background: white; color: var(--green); }
 .goal-stepper strong { min-width: 38px; text-align: center; color: var(--green); font-size: 11px; }
 .task-priority-select { flex: 0 0 auto; border: 1px solid var(--line); border-radius: 999px; background: #eee6d8; padding: 7px 9px; color: var(--ink); font-size: 9px; }
+.task-brand-select { flex: 0 0 auto; max-width: 145px; border: 1px solid var(--line); border-radius: 999px; background: #dfe9df; padding: 7px 9px; color: var(--green); font-size: 9px; }
 
 @media (max-width: 850px) {
   .status-strip { grid-template-columns: repeat(2, 1fr); }
@@ -90,7 +92,7 @@
   .quick-contact label { min-width: 0; margin-bottom: 10px; }
   .quick-contact input,
   .quick-contact select,
-  .quick-contact textarea { width: 100%; min-width: 0; padding: 9px 10px; }
+  .quick-contact textarea { width: 100%; min-width: 0; padding: 9px 10px; font-size: 16px; }
   .quick-contact textarea { min-height: 62px; }
   .brand-mark div { display: flex; }
   .brand-mark small { font-size: 7px; }
@@ -114,6 +116,7 @@
   .task-row small { font-size: 10px; }
   .goal-stepper { margin-left: 38px; }
   .task-priority-select { margin-left: auto; }
+  .task-brand-select { max-width: none; }
   .week-guide { padding: 20px; }
   .week-guide h2 { font-size: 25px; }
   .week-guide > p:not(.eyebrow) { margin-bottom: 14px; }

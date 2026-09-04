@@ -152,7 +152,7 @@ export default function Home() {
   const currentTaskKey = dateKey(sundayOf(new Date()));
   const [weeklyTasks, setWeeklyTasks] = useState<WeeklyTask[]>(() => {
     try {
-      const saved = localStorage.getItem(`outreach-tasks-${currentTaskKey}`);
+      const saved = localStorage.getItem(`outreach-tasks-v2-${currentTaskKey}`);
       return saved
         ? JSON.parse(saved).map((task: Partial<WeeklyTask>) => {
             const isProviderGoal = task.name?.includes('Healing Directory providers');
@@ -168,6 +168,7 @@ export default function Home() {
               priority: isProviderGoal || isStudioGoal ? 'High' : task.priority || 'Normal',
               goal: isProviderGoal ? 15 : isStudioGoal ? 5 : task.goal,
               progress: task.progress || 0,
+              brand: task.brand || (isProviderGoal ? 'The Healing Directory' : isStudioGoal ? 'The Daily Session' : 'The Daily Session'),
             };
           })
         : baselineTasks;
@@ -207,7 +208,7 @@ export default function Home() {
   }, [leads, ready]);
   useEffect(() => {
     localStorage.setItem(
-      `outreach-tasks-${currentTaskKey}`,
+      `outreach-tasks-v2-${currentTaskKey}`,
       JSON.stringify(weeklyTasks),
     );
   }, [weeklyTasks, currentTaskKey]);
@@ -409,7 +410,7 @@ function Dashboard({
               <p className="eyebrow">THIS WEEK</p>
               <h2>{remainingTasks} tasks remaining</h2>
             </div>
-            <span className="progress">{completedTasks} of {tasks.length}</span>
+            <span className="week-count">{completedTasks}/{tasks.length} done</span>
           </div>
           {tasks.slice(0, 2).map((task) => (
             <div className="task" key={task.name}>
@@ -952,23 +953,35 @@ type WeeklyTask = {
   extra?: boolean;
   goal?: number;
   progress?: number;
+  brand: 'The Daily Session' | 'The Healing Directory';
 };
 const baselineTasks: WeeklyTask[] = [
-  { name: 'Reach out to new Healing Directory providers', done: false, priority: 'High', goal: 15, progress: 0 },
-  { name: 'Reach out to new Daily Session studios', done: false, priority: 'High', goal: 5, progress: 0 },
-  { name: 'Create content', done: false, priority: 'Low' },
-  { name: 'Engage with new applicants', done: false, priority: 'High' },
+  { name: 'Reach out to new partners', brand: 'The Healing Directory', done: false, priority: 'High', goal: 15, progress: 0 },
+  { name: 'Reach out to new partners', brand: 'The Daily Session', done: false, priority: 'High', goal: 5, progress: 0 },
+  { name: 'Create content', brand: 'The Healing Directory', done: false, priority: 'Normal' },
+  { name: 'Create content', brand: 'The Daily Session', done: false, priority: 'Normal' },
+  { name: 'Reshare relevant stories and posts', brand: 'The Healing Directory', done: false, priority: 'Low' },
+  { name: 'Reshare relevant stories and posts', brand: 'The Daily Session', done: false, priority: 'Low' },
 ];
 function Tasks({ tasks, setTasks }: { tasks: WeeklyTask[]; setTasks: (tasks: WeeklyTask[]) => void }) {
   const currentSunday = sundayOf(new Date());
   const previousSunday = new Date(currentSunday);
   previousSunday.setDate(previousSunday.getDate() - 7);
+  const previousKey = dateKey(previousSunday);
   const [newTask, setNewTask] = useState('');
   const [newPriority, setNewPriority] = useState<TaskPriority>('Normal');
+  const [newBrand, setNewBrand] = useState<WeeklyTask['brand']>('The Daily Session');
   const [priorityFilter, setPriorityFilter] = useState<'All' | TaskPriority>('All');
+  const [previousTasks] = useState<WeeklyTask[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem(`outreach-tasks-v2-${previousKey}`) || '[]');
+    } catch {
+      return [];
+    }
+  });
   const add = () => {
     if (!newTask.trim()) return;
-    setTasks([...tasks, { name: newTask.trim(), done: false, priority: newPriority, extra: true }]);
+    setTasks([...tasks, { name: newTask.trim(), brand: newBrand, done: false, priority: newPriority, extra: true }]);
     setNewTask('');
   };
   const isComplete = (task: WeeklyTask) => task.done || Boolean(task.goal && (task.progress || 0) >= task.goal);
@@ -1024,6 +1037,10 @@ function Tasks({ tasks, setTasks }: { tasks: WeeklyTask[]; setTasks: (tasks: Wee
               <option>Normal</option>
               <option>Low</option>
             </select>
+            <select value={newBrand} onChange={(e) => setNewBrand(e.target.value as WeeklyTask['brand'])} aria-label="New task brand">
+              <option>The Daily Session</option>
+              <option>The Healing Directory</option>
+            </select>
             <button onClick={add}>Add to this week</button>
           </div>
           {visibleTasks.map((t) => {
@@ -1040,7 +1057,7 @@ function Tasks({ tasks, setTasks }: { tasks: WeeklyTask[]; setTasks: (tasks: Wee
               <div>
                 <strong>{t.name}</strong>
                 <small>
-                  {t.goal ? `${t.progress || 0} of ${t.goal} reached` : t.extra ? 'Added for this week' : 'Weekly task'}
+                  {t.goal ? `${t.progress || 0} of ${t.goal} reached` : t.extra ? 'Added this week' : 'Weekly task'}
                 </small>
               </div>
               {t.goal && (
@@ -1055,6 +1072,10 @@ function Tasks({ tasks, setTasks }: { tasks: WeeklyTask[]; setTasks: (tasks: Wee
                 <option>Normal</option>
                 <option>Low</option>
               </select>
+              <select className="task-brand-select" value={t.brand} onChange={(event) => updateTask(i, { brand: event.target.value as WeeklyTask['brand'] })} aria-label={`Brand for ${t.name}`}>
+                <option value="The Daily Session">Daily Session</option>
+                <option value="The Healing Directory">Healing Directory</option>
+              </select>
             </div>
             );
           })}
@@ -1065,17 +1086,17 @@ function Tasks({ tasks, setTasks }: { tasks: WeeklyTask[]; setTasks: (tasks: Wee
           <summary>
             <span>
               <strong>Week of {prettyDate(previousSunday)}</strong>
-              <small>4 completed · Locked</small>
+              <small>{previousTasks.filter((task) => task.done || (task.goal && (task.progress || 0) >= task.goal)).length} completed · Locked</small>
             </span>
             <b>View work</b>
           </summary>
-          {baselineTasks.map((task) => (
+          {previousTasks.length ? previousTasks.map((task) => (
             <div className="locked-task" key={task.name}>
-              <span>✓</span>
-              {task.name}
+              <span>{task.done || (task.goal && (task.progress || 0) >= task.goal) ? '✓' : '·'}</span>
+              <div>{task.name}<small>{task.brand}{task.goal ? ` · ${task.progress || 0}/${task.goal}` : ''}</small></div>
               <small>Locked</small>
             </div>
-          ))}
+          )) : <div className="locked-task"><span>·</span><div>No saved work for this week</div><small>Locked</small></div>}
         </details>
       </section>
     </>
