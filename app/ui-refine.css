@@ -27,12 +27,16 @@
 .task-check { width: 25px; height: 25px; flex: 0 0 25px; border: 1px solid var(--line); border-radius: 50%; background: white; color: white; }
 .task-row.done .task-check { background: var(--green); }
 .goal-stepper { flex: 0 0 auto !important; display: flex !important; flex-direction: row !important; align-items: center; gap: 7px !important; }
-.goal-stepper button { width: 28px; height: 28px; border: 1px solid var(--line); border-radius: 50%; background: white; color: var(--green); }
+.goal-stepper button { min-width: 38px; height: 32px; border: 1px solid var(--line); border-radius: 9px; background: white; color: var(--green); }
+.goal-stepper .reached-button { min-width: 86px; background: var(--green); border-color: var(--green); color: white; }
 .goal-stepper strong { min-width: 38px; text-align: center; color: var(--green); font-size: 11px; }
+.goal-status { width: 25px; height: 25px; flex: 0 0 25px; display: grid; place-items: center; border-radius: 50%; background: #eee6d8; color: var(--green); font-size: 9px; font-weight: 800; }
+.goal-status.done { background: var(--green); color: white; }
 .task-priority-select { flex: 0 0 auto; border: 1px solid var(--line); border-radius: 999px; background: #eee6d8; padding: 7px 9px; color: var(--ink); font-size: 9px; }
 .task-priority-label { flex: 0 0 auto; border-radius: 999px; background: #eee6d8; padding: 8px 11px; color: var(--ink); font-size: 9px; }
 .sync-note { margin: -5px 0 12px; color: var(--muted); font-size: 10px; }
 .sync-note.error { color: var(--coral); }
+.shift-link { min-height: 42px; border: 1px solid var(--line); border-radius: 999px; background: var(--paper); padding: 0 17px; color: var(--green); font-size: 11px; font-weight: 700; }
 .hours-table-head, .hours-table-row { grid-template-columns: 110px 100px 80px 1.25fr 1.4fr 80px 45px; }
 .task.in-progress i { background: var(--coral); }
 .task.done i { background: var(--green); }

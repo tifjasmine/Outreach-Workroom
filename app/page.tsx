@@ -140,7 +140,7 @@ const nav = [
   'Contacts',
   'Follow ups',
   'Tasks',
-  'Hours',
+  'Shift Log',
   'Settings',
 ];
 
@@ -387,7 +387,7 @@ export default function Home() {
           />
         ) : view === 'Tasks' ? (
           <Tasks tasks={weeklyTasks} setTasks={setWeeklyTasks} previousTasks={previousTasks} member={member} syncStatus={taskSyncStatus} />
-        ) : view === 'Hours' ? (
+        ) : view === 'Shift Log' ? (
           <Hours member={member} />
         ) : view === 'Settings' ? (
           <Settings />
@@ -401,7 +401,7 @@ export default function Home() {
           />
         )}
       </section>
-      {!['Tasks', 'Hours', 'Settings'].includes(view) && (
+      {!['Tasks', 'Shift Log', 'Settings'].includes(view) && (
         <button className="floating-add" onClick={() => setAddOpen(true)}>
           <Plus size={20} />
           <span>Add contact</span>
@@ -509,11 +509,12 @@ function Dashboard({
         eyebrow={todayLabel.replace(', ', ' · ')}
         title={member}
         sub="Contacts, weekly outreach, and follow ups."
-        action={
+        action={<div className="header-actions">
+          <button className="shift-link" onClick={() => open('Shift Log')}>Log a shift</button>
           <button className="primary add-prominent" onClick={add}>
             <Plus size={17} /> Add contact
           </button>
-        }
+        </div>}
       />
       <div className="dashboard-grid">
         <section className="priority-card dark">
@@ -564,7 +565,7 @@ function Dashboard({
           label="THE DAILY SESSION"
           title="Studio outreach"
           leads={leads.filter((x) => x.brand === 'The Daily Session')}
-          open={() => open('Pipeline')}
+          open={() => open('The Daily Session Pipeline')}
         />
         <Brand
           initials="HD"
@@ -572,7 +573,7 @@ function Dashboard({
           title="Provider outreach"
           leads={leads.filter((x) => x.brand === 'The Healing Directory')}
           accent
-          open={() => open('Pipeline')}
+          open={() => open('The Healing Directory Pipeline')}
         />
       </div>
     </>
@@ -636,8 +637,9 @@ function Outreach({
   add: () => void;
   open: (id: number | string) => void;
 }) {
+  const startingBrand = title.startsWith('The Daily Session') ? 'The Daily Session' : title.startsWith('The Healing Directory') ? 'The Healing Directory' : 'All';
   const [mode, setMode] = useState('Pipeline'),
-    [brand, setBrand] = useState('All'),
+    [brand, setBrand] = useState(startingBrand),
     [stageFilter, setStageFilter] = useState('All'),
     [mobileStage, setMobileStage] = useState(statuses[0]),
     [search, setSearch] = useState(''),
@@ -654,7 +656,7 @@ function Outreach({
   return (
     <>
       <Header
-        eyebrow={title === 'Follow ups' ? 'DUE & OVERDUE' : 'OUTREACH'}
+        eyebrow={title === 'Follow ups' ? 'DUE & OVERDUE' : brand === 'All' ? 'ALL CONTACTS' : brand.toUpperCase()}
         title={title === 'Follow ups' ? 'Follow ups' : 'Outreach pipeline'}
         sub="The full path from first find to joined—without sales clutter."
         action={
@@ -1209,18 +1211,19 @@ function Tasks({ tasks, setTasks, previousTasks, member, syncStatus }: { tasks: 
               className={`task-row ${done ? 'done' : ''}`}
               key={t.name}
             >
-              <button className="task-check" aria-label={`Mark ${t.name} ${done ? 'incomplete' : 'complete'}`} onClick={() => updateTask(i, t.goal ? { done: false, progress: done ? 0 : t.goal } : { done: !done })}>
+              {!t.goal && <button className="task-check" aria-label={`Mark ${t.name} ${done ? 'incomplete' : 'complete'}`} onClick={() => updateTask(i, { done: !done })}>
                 {done ? '✓' : ''}
-              </button>
+              </button>}
+              {t.goal && <span className={`goal-status ${done ? 'done' : ''}`}>{done ? '✓' : t.progress || 0}</span>}
               <div>
                 <strong>{t.name}</strong>
                 <small>{t.goal ? `${t.progress || 0} of ${t.goal} reached` : t.priority}</small>
               </div>
               {t.goal && (
                 <div className="goal-stepper">
-                  <button aria-label={`Remove one from ${t.name}`} onClick={() => updateTask(i, { progress: Math.max(0, (t.progress || 0) - 1), done: false })}>−</button>
+                  <button aria-label={`Remove one from ${t.name}`} onClick={() => updateTask(i, { progress: Math.max(0, (t.progress || 0) - 1), done: false })}>−1</button>
                   <strong>{t.progress || 0}/{t.goal}</strong>
-                  <button aria-label={`Add one to ${t.name}`} onClick={() => updateTask(i, { progress: Math.min(t.goal || 0, (t.progress || 0) + 1) })}>+</button>
+                  <button className="reached-button" aria-label={`Add one to ${t.name}`} onClick={() => updateTask(i, { progress: Math.min(t.goal || 0, (t.progress || 0) + 1) })}>+1 reached</button>
                 </div>
               )}
               {member === 'Tiffany' ? <select className="task-priority-select" value={t.priority} onChange={(event) => updateTask(i, { priority: event.target.value as TaskPriority })} aria-label={`Priority for ${t.name}`}>
