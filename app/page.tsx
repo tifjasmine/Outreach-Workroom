@@ -146,6 +146,8 @@ const nav = [
 async function airtableApi<T = Record<string, unknown>>(path: string, options?: RequestInit): Promise<T> {
   const requestHeaders = new Headers(options?.headers);
   requestHeaders.set('Content-Type', 'application/json');
+  const token = typeof window !== 'undefined' ? localStorage.getItem('outreach-workroom-session') : '';
+  if (token) requestHeaders.set('Authorization', `Bearer ${token}`);
   const response = await fetch(`/api/airtable${path}`, {
     ...options,
     headers: requestHeaders,
@@ -162,7 +164,10 @@ export default function Home() {
     [selected, setSelected] = useState<number | string | null>(null),
     [ready, setReady] = useState(false),
     [airtableReady, setAirtableReady] = useState(false),
-    [previousTasks, setPreviousTasks] = useState<WeeklyTask[]>([]);
+    [previousTasks, setPreviousTasks] = useState<WeeklyTask[]>([]),
+    [authToken, setAuthToken] = useState(''),
+    [member, setMember] = useState<'Tiffany' | 'Xachil'>('Tiffany'),
+    [authChecked, setAuthChecked] = useState(false);
   const contactSyncTimers = useRef(new Map<number | string, ReturnType<typeof setTimeout>>());
   const currentTaskKey = dateKey(sundayOf(new Date()));
   const [weeklyTasks, setWeeklyTasks] = useState<WeeklyTask[]>(() => {
@@ -192,6 +197,12 @@ export default function Home() {
     }
   });
   useEffect(() => {
+    setAuthToken(localStorage.getItem('outreach-workroom-session') || '');
+    setMember((localStorage.getItem('outreach-workroom-member') as 'Tiffany' | 'Xachil') || 'Tiffany');
+    setAuthChecked(true);
+  }, []);
+  useEffect(() => {
+    if (!authToken) return;
     let localContacts: Lead[] | null = null;
     try {
       const saved = localStorage.getItem('outreach-workroom-contacts');
@@ -236,7 +247,7 @@ export default function Home() {
         if (!localContacts) setLeads(seed);
       })
       .finally(() => setReady(true));
-  }, []);
+  }, [authToken]);
   useEffect(() => {
     if (!ready) return;
     localStorage.setItem('outreach-workroom-contacts', JSON.stringify(leads));
@@ -301,6 +312,20 @@ export default function Home() {
     setLeads(next);
     if (changed) changeLead(changed);
   };
+  const signIn = (token: string, signedInMember: 'Tiffany' | 'Xachil') => {
+    localStorage.setItem('outreach-workroom-session', token);
+    localStorage.setItem('outreach-workroom-member', signedInMember);
+    setMember(signedInMember);
+    setAuthToken(token);
+  };
+  const signOut = () => {
+    localStorage.removeItem('outreach-workroom-session');
+    localStorage.removeItem('outreach-workroom-member');
+    setAuthToken('');
+    setAirtableReady(false);
+  };
+  if (!authChecked) return <main className="login-shell" />;
+  if (!authToken) return <LoginScreen onSignIn={signIn} />;
   return (
     <main className="app-shell">
       <aside className="sidebar">
@@ -333,10 +358,10 @@ export default function Home() {
           </p>
         </div>
         <div className="profile">
-          <span>TW</span>
+          <span>{member === 'Tiffany' ? 'TW' : 'X'}</span>
           <div>
-            <strong>Tiffany</strong>
-            <small>Workspace owner</small>
+            <strong>{member}</strong>
+            <button onClick={signOut}>Sign out</button>
           </div>
         </div>
       </aside>
@@ -376,7 +401,7 @@ export default function Home() {
           <span>Add contact</span>
         </button>
       )}
-      {addOpen && <AddModal close={() => setAddOpen(false)} submit={addLead} />}{' '}
+      {addOpen && <AddModal close={() => setAddOpen(false)} submit={addLead} member={member} />}{' '}
       {selected && (
         <ContactDetail
           lead={leads.find((x) => x.id === selected)!}
@@ -384,6 +409,45 @@ export default function Home() {
           close={() => setSelected(null)}
         />
       )}
+    </main>
+  );
+}
+function LoginScreen({ onSignIn }: { onSignIn: (token: string, member: 'Tiffany' | 'Xachil') => void }) {
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const submit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setLoading(true);
+    setError('');
+    const form = new FormData(event.currentTarget);
+    const member = String(form.get('member')) as 'Tiffany' | 'Xachil';
+    try {
+      const response = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ member, passcode: String(form.get('passcode') || '') }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Could not sign in.');
+      onSignIn(data.token, member);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Could not sign in.');
+    } finally {
+      setLoading(false);
+    }
+  };
+  return (
+    <main className="login-shell">
+      <form className="login-card" onSubmit={submit}>
+        <div className="login-logo">O</div>
+        <p className="eyebrow">OUTREACH WORKROOM</p>
+        <h1>Welcome back.</h1>
+        <p>Sign in to the shared workspace.</p>
+        <label>Your name<select name="member"><option>Tiffany</option><option>Xachil</option></select></label>
+        <label>Shared passcode<input name="passcode" type="password" required autoComplete="current-password" /></label>
+        {error && <div className="login-error">{error}</div>}
+        <button className="primary" disabled={loading}>{loading ? 'Opening…' : 'Open workroom'}</button>
+      </form>
     </main>
   );
 }
@@ -489,8 +553,8 @@ function Dashboard({
             <span className="week-count">{completedTasks}/{tasks.length} done</span>
           </div>
           <div className="dashboard-task-tabs" aria-label="Choose task brand">
-            <button className={taskBrand === 'The Daily Session' ? 'active' : ''} onClick={() => setTaskBrand('The Daily Session')}>The Daily</button>
-            <button className={taskBrand === 'The Healing Directory' ? 'active' : ''} onClick={() => setTaskBrand('The Healing Directory')}>Directory</button>
+            <button className={taskBrand === 'The Daily Session' ? 'active' : ''} onClick={() => setTaskBrand('The Daily Session')}>The Daily Session</button>
+            <button className={taskBrand === 'The Healing Directory' ? 'active' : ''} onClick={() => setTaskBrand('The Healing Directory')}>The Healing Directory</button>
           </div>
           {brandTasks.map((task) => (
             <div className="task" key={task.name}>
@@ -1098,8 +1162,8 @@ function Tasks({ tasks, setTasks, previousTasks }: { tasks: WeeklyTask[]; setTas
         }
       />
       <div className="brand-task-toggle" aria-label="Choose task brand">
-        <button className={brandFilter === 'The Daily Session' ? 'active' : ''} onClick={() => setBrandFilter('The Daily Session')}>Daily Session</button>
-        <button className={brandFilter === 'The Healing Directory' ? 'active' : ''} onClick={() => setBrandFilter('The Healing Directory')}>Healing Directory</button>
+        <button className={brandFilter === 'The Daily Session' ? 'active' : ''} onClick={() => setBrandFilter('The Daily Session')}>The Daily Session</button>
+        <button className={brandFilter === 'The Healing Directory' ? 'active' : ''} onClick={() => setBrandFilter('The Healing Directory')}>The Healing Directory</button>
       </div>
       <div className="task-filter-row" aria-label="Filter tasks by priority">
         {(['All', 'High', 'Normal', 'Low'] as const).map((priority) => (
@@ -1410,9 +1474,11 @@ function Settings() {
 function AddModal({
   close,
   submit,
+  member,
 }: {
   close: () => void;
   submit: (e: React.FormEvent<HTMLFormElement>) => void;
+  member: 'Tiffany' | 'Xachil';
 }) {
   const [brand, setBrand] = useState('The Daily Session');
   const contactTypes =
@@ -1482,7 +1548,7 @@ function AddModal({
           </label>
           <label>
             Added by
-            <select name="addedBy" defaultValue="Tiffany">
+            <select name="addedBy" defaultValue={member}>
               <option>Tiffany</option>
               <option>Xachil</option>
             </select>

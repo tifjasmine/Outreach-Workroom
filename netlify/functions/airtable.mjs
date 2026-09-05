@@ -1,3 +1,5 @@
+import { verifySession } from './lib/auth.mjs';
+
 const BASE_ID = process.env.AIRTABLE_BASE_ID || 'app11urE9NUz5itbf';
 const TABLES = {
   contacts: process.env.AIRTABLE_CONTACTS_TABLE || 'Contacts',
@@ -157,6 +159,7 @@ function hourFields(hour) {
 
 export async function handler(event) {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers, body: '' };
+  if (!verifySession(event)) return response(401, { error: 'Sign in required' });
   const resource = event.queryStringParameters?.resource;
   try {
     if (event.httpMethod === 'GET') {

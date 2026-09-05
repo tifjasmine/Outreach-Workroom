@@ -3,6 +3,11 @@
   publish = "netlify-dist"
 
 [[redirects]]
+  from = "/api/login"
+  to = "/.netlify/functions/login"
+  status = 200
+
+[[redirects]]
   from = "/api/airtable"
   to = "/.netlify/functions/airtable"
   status = 200
