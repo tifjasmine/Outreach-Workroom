@@ -354,12 +354,19 @@ function Dashboard({
   add: () => void;
 }) {
   const count = (s: string) => leads.filter((x) => x.status === s).length;
+  const [taskBrand, setTaskBrand] = useState<WeeklyTask['brand']>('The Daily Session');
+  const todayLabel = new Date().toLocaleDateString('en-US', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+  }).toUpperCase();
   const completedTasks = tasks.filter((task) => task.done || (task.goal && (task.progress || 0) >= task.goal)).length;
   const remainingTasks = tasks.length - completedTasks;
+  const brandTasks = tasks.filter((task) => task.brand === taskBrand);
   return (
     <>
       <Header
-        eyebrow="THURSDAY · SEPTEMBER 3"
+        eyebrow={todayLabel.replace(', ', ' · ')}
         title="Tiffany & Xachil"
         sub="Contacts, weekly outreach, and follow ups."
         action={
@@ -414,7 +421,11 @@ function Dashboard({
             </div>
             <span className="week-count">{completedTasks}/{tasks.length} done</span>
           </div>
-          {tasks.slice(0, 2).map((task) => (
+          <div className="dashboard-task-tabs" aria-label="Choose task brand">
+            <button className={taskBrand === 'The Daily Session' ? 'active' : ''} onClick={() => setTaskBrand('The Daily Session')}>The Daily</button>
+            <button className={taskBrand === 'The Healing Directory' ? 'active' : ''} onClick={() => setTaskBrand('The Healing Directory')}>Directory</button>
+          </div>
+          {brandTasks.map((task) => (
             <div className="task" key={task.name}>
               <i className={task.priority === 'High' ? 'high' : ''} />
               <div>
@@ -507,6 +518,7 @@ function Outreach({
   const [mode, setMode] = useState('Pipeline'),
     [brand, setBrand] = useState('All'),
     [stageFilter, setStageFilter] = useState('All'),
+    [mobileStage, setMobileStage] = useState(statuses[0]),
     [search, setSearch] = useState(''),
     [filtersOpen, setFiltersOpen] = useState(false);
   const filtered = leads.filter(
@@ -572,10 +584,23 @@ function Outreach({
         </div>
       )}
       {mode === 'Pipeline' ? (
+        <>
+        <div className="mobile-stage-tabs" aria-label="Choose pipeline stage">
+          {statuses.map((status) => (
+            <button
+              key={status}
+              className={mobileStage === status ? 'active' : ''}
+              onClick={() => setMobileStage(status)}
+            >
+              <span>{status === 'Archived / Not a Good Fit' ? 'Archived' : status}</span>
+              <b>{filtered.filter((x) => x.status === status).length}</b>
+            </button>
+          ))}
+        </div>
         <div className="pipeline">
           {statuses.map((status) => (
             <section
-              className="column"
+              className={`column ${mobileStage === status ? 'mobile-active' : ''}`}
               key={status}
               onDragOver={(e) => e.preventDefault()}
               onDrop={(e) => move(Number(e.dataTransfer.getData('id')), status)}
@@ -615,6 +640,7 @@ function Outreach({
             </section>
           ))}
         </div>
+        </>
       ) : (
         <ContactTable leads={filtered} open={open} move={move} />
       )}
