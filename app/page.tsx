@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowUpRight,
   AtSign as Instagram,
@@ -18,7 +18,7 @@ import {
 type Update = { text: string; date: string; by: string };
 type ContactTask = { text: string; due: string; done: boolean };
 type Lead = {
-  id: number;
+  id: number | string;
   name: string;
   handle: string;
   email?: string;
@@ -143,12 +143,27 @@ const nav = [
   'Settings',
 ];
 
+async function airtableApi<T = Record<string, unknown>>(path: string, options?: RequestInit): Promise<T> {
+  const requestHeaders = new Headers(options?.headers);
+  requestHeaders.set('Content-Type', 'application/json');
+  const response = await fetch(`/api/airtable${path}`, {
+    ...options,
+    headers: requestHeaders,
+  });
+  const data = await response.json() as T & { error?: string };
+  if (!response.ok) throw new Error(data.error || 'Airtable is unavailable');
+  return data;
+}
+
 export default function Home() {
   const [view, setView] = useState('Overview'),
     [leads, setLeads] = useState<Lead[]>(seed),
     [addOpen, setAddOpen] = useState(false),
-    [selected, setSelected] = useState<number | null>(null),
-    [ready, setReady] = useState(false);
+    [selected, setSelected] = useState<number | string | null>(null),
+    [ready, setReady] = useState(false),
+    [airtableReady, setAirtableReady] = useState(false),
+    [previousTasks, setPreviousTasks] = useState<WeeklyTask[]>([]);
+  const contactSyncTimers = useRef(new Map<number | string, ReturnType<typeof setTimeout>>());
   const currentTaskKey = dateKey(sundayOf(new Date()));
   const [weeklyTasks, setWeeklyTasks] = useState<WeeklyTask[]>(() => {
     try {
@@ -177,6 +192,7 @@ export default function Home() {
     }
   });
   useEffect(() => {
+    let localContacts: Lead[] | null = null;
     try {
       const saved = localStorage.getItem('outreach-workroom-contacts');
       if (saved) {
@@ -189,18 +205,29 @@ export default function Home() {
             Interested: 'Follow Up',
             Applied: 'Contacted',
           };
-          setLeads(
-            parsed.map((contact: Lead) => ({
+          localContacts = parsed.map((contact: Lead) => ({
               ...contact,
               status: stageMap[contact.status] || contact.status,
-            })),
-          );
+            }));
+          setLeads(localContacts);
         }
       }
-    } catch {
-    } finally {
-      setReady(true);
-    }
+    } catch {}
+    airtableApi<{ contacts: Lead[]; tasks: WeeklyTask[]; hours: unknown[] }>('?resource=all')
+      .then((data) => {
+        if (Array.isArray(data.contacts)) setLeads(data.contacts);
+        if (Array.isArray(data.tasks)) {
+          const current = data.tasks.filter((task: WeeklyTask) => task.weekOf === currentTaskKey);
+          const previous = data.tasks.filter((task: WeeklyTask) => task.weekOf && task.weekOf < currentTaskKey);
+          setWeeklyTasks(current.length ? current : baselineTasks.map((task) => ({ ...task, weekOf: currentTaskKey })));
+          setPreviousTasks(previous);
+        }
+        setAirtableReady(true);
+      })
+      .catch(() => {
+        if (!localContacts) setLeads(seed);
+      })
+      .finally(() => setReady(true));
   }, []);
   useEffect(() => {
     if (!ready) return;
@@ -212,7 +239,20 @@ export default function Home() {
       JSON.stringify(weeklyTasks),
     );
   }, [weeklyTasks, currentTaskKey]);
-  const addLead = (e: React.FormEvent<HTMLFormElement>) => {
+  useEffect(() => {
+    if (!airtableReady) return;
+    const timer = setTimeout(() => {
+      airtableApi<{ tasks: WeeklyTask[] }>('?resource=tasks', {
+        method: 'PUT',
+        body: JSON.stringify({ tasks: weeklyTasks.map((task) => ({ ...task, weekOf: currentTaskKey })) }),
+      }).then((data) => {
+        if (!Array.isArray(data.tasks)) return;
+        setWeeklyTasks((current) => JSON.stringify(current) === JSON.stringify(data.tasks) ? current : data.tasks);
+      }).catch(() => {});
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [weeklyTasks, currentTaskKey, airtableReady]);
+  const addLead = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
     const lead: Lead = {
@@ -231,9 +271,28 @@ export default function Home() {
     };
     setLeads([lead, ...leads]);
     setAddOpen(false);
+    try {
+      const saved = await airtableApi<Lead>('?resource=contacts', { method: 'POST', body: JSON.stringify(lead) });
+      setLeads((current) => current.map((item) => item.id === lead.id ? saved : item));
+    } catch {}
   };
-  const changeLead = (next: Lead) =>
+  const changeLead = (next: Lead) => {
     setLeads(leads.map((x) => (x.id === next.id ? next : x)));
+    if (typeof next.id !== 'string' || !next.id.startsWith('rec')) return;
+    const existing = contactSyncTimers.current.get(next.id);
+    if (existing) clearTimeout(existing);
+    contactSyncTimers.current.set(next.id, setTimeout(() => {
+      airtableApi('?resource=contacts', { method: 'PATCH', body: JSON.stringify(next) }).catch(() => {});
+    }, 450));
+  };
+  const replaceLeads = (next: Lead[]) => {
+    const changed = next.find((candidate) => {
+      const before = leads.find((lead) => lead.id === candidate.id);
+      return before && JSON.stringify(before) !== JSON.stringify(candidate);
+    });
+    setLeads(next);
+    if (changed) changeLead(changed);
+  };
   return (
     <main className="app-shell">
       <aside className="sidebar">
@@ -288,7 +347,7 @@ export default function Home() {
             add={() => setAddOpen(true)}
           />
         ) : view === 'Tasks' ? (
-          <Tasks tasks={weeklyTasks} setTasks={setWeeklyTasks} />
+          <Tasks tasks={weeklyTasks} setTasks={setWeeklyTasks} previousTasks={previousTasks} />
         ) : view === 'Hours' ? (
           <Hours />
         ) : view === 'Settings' ? (
@@ -297,7 +356,7 @@ export default function Home() {
           <Outreach
             title={view}
             leads={leads}
-            setLeads={setLeads}
+            setLeads={replaceLeads}
             add={() => setAddOpen(true)}
             open={setSelected}
           />
@@ -513,7 +572,7 @@ function Outreach({
   leads: Lead[];
   setLeads: (x: Lead[]) => void;
   add: () => void;
-  open: (id: number) => void;
+  open: (id: number | string) => void;
 }) {
   const [mode, setMode] = useState('Pipeline'),
     [brand, setBrand] = useState('All'),
@@ -528,8 +587,8 @@ function Outreach({
       (title !== 'Follow ups' || x.status === 'Follow Up') &&
       `${x.name} ${x.handle} ${x.email}`.toLowerCase().includes(search.toLowerCase()),
   );
-  const move = (id: number, status: string) =>
-    setLeads(leads.map((x) => (x.id === id ? { ...x, status } : x)));
+  const move = (id: number | string, status: string) =>
+    setLeads(leads.map((x) => (String(x.id) === String(id) ? { ...x, status } : x)));
   return (
     <>
       <Header
@@ -603,7 +662,7 @@ function Outreach({
               className={`column ${mobileStage === status ? 'mobile-active' : ''}`}
               key={status}
               onDragOver={(e) => e.preventDefault()}
-              onDrop={(e) => move(Number(e.dataTransfer.getData('id')), status)}
+              onDrop={(e) => move(e.dataTransfer.getData('id'), status)}
             >
               <div className="column-head">
                 <strong>{status}</strong>
@@ -653,7 +712,7 @@ function Contacts({
   add,
 }: {
   leads: Lead[];
-  open: (id: number) => void;
+  open: (id: number | string) => void;
   add: () => void;
 }) {
   const [q, setQ] = useState(''),
@@ -742,8 +801,8 @@ function ContactTable({
   move,
 }: {
   leads: Lead[];
-  open: (id: number) => void;
-  move: (id: number, s: string) => void;
+  open: (id: number | string) => void;
+  move: (id: number | string, s: string) => void;
 }) {
   return (
     <div className="table-wrap">
@@ -975,6 +1034,7 @@ function prettyDate(date: Date) {
 }
 type TaskPriority = 'High' | 'Normal' | 'Low';
 type WeeklyTask = {
+  airtableId?: string;
   name: string;
   done: boolean;
   priority: TaskPriority;
@@ -982,6 +1042,8 @@ type WeeklyTask = {
   goal?: number;
   progress?: number;
   brand: 'The Daily Session' | 'The Healing Directory';
+  weekOf?: string;
+  locked?: boolean;
 };
 const baselineTasks: WeeklyTask[] = [
   { name: 'Reach out to new partners', brand: 'The Healing Directory', done: false, priority: 'High', goal: 15, progress: 0 },
@@ -991,7 +1053,7 @@ const baselineTasks: WeeklyTask[] = [
   { name: 'Reshare relevant stories and posts', brand: 'The Healing Directory', done: false, priority: 'Low' },
   { name: 'Reshare relevant stories and posts', brand: 'The Daily Session', done: false, priority: 'Low' },
 ];
-function Tasks({ tasks, setTasks }: { tasks: WeeklyTask[]; setTasks: (tasks: WeeklyTask[]) => void }) {
+function Tasks({ tasks, setTasks, previousTasks }: { tasks: WeeklyTask[]; setTasks: (tasks: WeeklyTask[]) => void; previousTasks: WeeklyTask[] }) {
   const currentSunday = sundayOf(new Date());
   const previousSunday = new Date(currentSunday);
   previousSunday.setDate(previousSunday.getDate() - 7);
@@ -1000,13 +1062,7 @@ function Tasks({ tasks, setTasks }: { tasks: WeeklyTask[]; setTasks: (tasks: Wee
   const [newPriority, setNewPriority] = useState<TaskPriority>('Normal');
   const [brandFilter, setBrandFilter] = useState<WeeklyTask['brand']>('The Daily Session');
   const [priorityFilter, setPriorityFilter] = useState<'All' | TaskPriority>('All');
-  const [previousTasks] = useState<WeeklyTask[]>(() => {
-    try {
-      return JSON.parse(localStorage.getItem(`outreach-tasks-v2-${previousKey}`) || '[]');
-    } catch {
-      return [];
-    }
-  });
+  const savedPreviousTasks = previousTasks.filter((task) => task.weekOf === previousKey);
   const add = () => {
     if (!newTask.trim()) return;
     setTasks([...tasks, { name: newTask.trim(), brand: brandFilter, done: false, priority: newPriority, extra: true }]);
@@ -1111,11 +1167,11 @@ function Tasks({ tasks, setTasks }: { tasks: WeeklyTask[]; setTasks: (tasks: Wee
           <summary>
             <span>
               <strong>Week of {prettyDate(previousSunday)}</strong>
-              <small>{previousTasks.filter((task) => task.done || (task.goal && (task.progress || 0) >= task.goal)).length} completed · Locked</small>
+              <small>{savedPreviousTasks.filter((task) => task.done || (task.goal && (task.progress || 0) >= task.goal)).length} completed · Locked</small>
             </span>
             <b>View work</b>
           </summary>
-          {previousTasks.length ? previousTasks.map((task) => (
+          {savedPreviousTasks.length ? savedPreviousTasks.map((task) => (
             <div className="locked-task" key={task.name}>
               <span>{task.done || (task.goal && (task.progress || 0) >= task.goal) ? '✓' : '·'}</span>
               <div>{task.name}<small>{task.brand}{task.goal ? ` · ${task.progress || 0}/${task.goal}` : ''}</small></div>
@@ -1129,6 +1185,7 @@ function Tasks({ tasks, setTasks }: { tasks: WeeklyTask[]; setTasks: (tasks: Wee
 }
 function Hours() {
   type HourLog = {
+    airtableId?: string;
     weekOf: string;
     date: string;
     hours: number;
@@ -1159,23 +1216,35 @@ function Hours() {
     () => localStorage.setItem('outreach-hours', JSON.stringify(logs)),
     [logs],
   );
+  useEffect(() => {
+    airtableApi<{ hours: HourLog[] }>('?resource=hours')
+      .then((data) => Array.isArray(data.hours) && setLogs(data.hours))
+      .catch(() => {});
+  }, []);
   const total = logs.reduce((sum, log) => sum + Number(log.hours), 0);
-  const addHours = (event: React.FormEvent<HTMLFormElement>) => {
+  const addHours = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     const date = new Date(String(form.get('date')) + 'T12:00:00');
-    setLogs([
-      {
+    const entry: HourLog = {
         weekOf: dateKey(sundayOf(date)),
         date: String(form.get('date')),
         hours: Number(form.get('hours')),
         brands: String(form.get('brand')),
         notes: String(form.get('notes')),
         paid: false,
-      },
-      ...logs,
-    ]);
+      };
+    setLogs([entry, ...logs]);
     setShowForm(false);
+    try {
+      const saved = await airtableApi<HourLog>('?resource=hours', { method: 'POST', body: JSON.stringify(entry) });
+      setLogs((current) => current.map((item) => item === entry ? saved : item));
+    } catch {}
+  };
+  const togglePaid = (index: number) => {
+    const next = { ...logs[index], paid: !logs[index].paid };
+    setLogs(logs.map((log, i) => i === index ? next : log));
+    if (next.airtableId) airtableApi('?resource=hours', { method: 'PATCH', body: JSON.stringify(next) }).catch(() => {});
   };
   return (
     <>
@@ -1281,13 +1350,7 @@ function Hours() {
               <input
                 type="checkbox"
                 checked={x.paid}
-                onChange={() =>
-                  setLogs(
-                    logs.map((log, i) =>
-                      i === index ? { ...log, paid: !log.paid } : log,
-                    ),
-                  )
-                }
+                onChange={() => togglePaid(index)}
               />
             </label>
           </div>
