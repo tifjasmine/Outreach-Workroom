@@ -24,6 +24,7 @@ type Lead = {
   email?: string;
   brand: string;
   type: string;
+  offering?: string;
   status: string;
   note: string;
   due?: string;
@@ -281,6 +282,7 @@ export default function Home() {
       email: String(f.get('email') || ''),
       brand: String(f.get('brand')),
       type: String(f.get('type')),
+      offering: String(f.get('offering') || ''),
       status: String(f.get('status')),
       due: String(f.get('due') || ''),
       note: String(f.get('note') || ''),
@@ -1016,6 +1018,14 @@ function ContactDetail({
                   placeholder="Sep 8"
                 />
               </label>
+              <label>
+                Type of offering
+                <input
+                  value={lead.offering || ''}
+                  onChange={(e) => change({ ...lead, offering: e.target.value })}
+                  placeholder="Yoga studio, therapist, Pilates…"
+                />
+              </label>
             </div>
             <div className="detail-section">
               <div className="detail-section-title">
@@ -1554,6 +1564,13 @@ function AddModal({
             </select>
           </label>
         </div>
+        <label>
+          Type of offering
+          <input
+            name="offering"
+            placeholder="Yoga studio, therapist, Pilates…"
+          />
+        </label>
         <label>
           Quick note
           <textarea
