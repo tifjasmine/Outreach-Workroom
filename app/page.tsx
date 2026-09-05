@@ -165,6 +165,7 @@ export default function Home() {
     [selected, setSelected] = useState<number | string | null>(null),
     [ready, setReady] = useState(false),
     [airtableReady, setAirtableReady] = useState(false),
+    [taskSyncStatus, setTaskSyncStatus] = useState<'saving' | 'saved' | 'error'>('saved'),
     [previousTasks, setPreviousTasks] = useState<WeeklyTask[]>([]),
     [authToken, setAuthToken] = useState(''),
     [member, setMember] = useState<'Tiffany' | 'Xachil'>('Tiffany'),
@@ -261,6 +262,7 @@ export default function Home() {
   }, [weeklyTasks, currentTaskKey]);
   useEffect(() => {
     if (!airtableReady) return;
+    setTaskSyncStatus('saving');
     const timer = setTimeout(() => {
       airtableApi<{ tasks: WeeklyTask[] }>('?resource=tasks', {
         method: 'PUT',
@@ -268,7 +270,8 @@ export default function Home() {
       }).then((data) => {
         if (!Array.isArray(data.tasks)) return;
         setWeeklyTasks((current) => JSON.stringify(current) === JSON.stringify(data.tasks) ? current : data.tasks);
-      }).catch(() => {});
+        setTaskSyncStatus('saved');
+      }).catch(() => setTaskSyncStatus('error'));
     }, 500);
     return () => clearTimeout(timer);
   }, [weeklyTasks, currentTaskKey, airtableReady]);
@@ -286,7 +289,7 @@ export default function Home() {
       status: String(f.get('status')),
       due: String(f.get('due') || ''),
       note: String(f.get('note') || ''),
-      addedBy: String(f.get('addedBy') || 'Tiffany'),
+      addedBy: member,
       updates: [],
       tasks: [],
     };
@@ -374,6 +377,7 @@ export default function Home() {
             tasks={weeklyTasks}
             open={setView}
             add={() => setAddOpen(true)}
+            member={member}
           />
         ) : view === 'Contacts' ? (
           <Contacts
@@ -382,9 +386,9 @@ export default function Home() {
             add={() => setAddOpen(true)}
           />
         ) : view === 'Tasks' ? (
-          <Tasks tasks={weeklyTasks} setTasks={setWeeklyTasks} previousTasks={previousTasks} />
+          <Tasks tasks={weeklyTasks} setTasks={setWeeklyTasks} previousTasks={previousTasks} member={member} syncStatus={taskSyncStatus} />
         ) : view === 'Hours' ? (
-          <Hours />
+          <Hours member={member} />
         ) : view === 'Settings' ? (
           <Settings />
         ) : (
@@ -403,12 +407,13 @@ export default function Home() {
           <span>Add contact</span>
         </button>
       )}
-      {addOpen && <AddModal close={() => setAddOpen(false)} submit={addLead} member={member} />}{' '}
+      {addOpen && <AddModal close={() => setAddOpen(false)} submit={addLead} />}{' '}
       {selected && (
         <ContactDetail
           lead={leads.find((x) => x.id === selected)!}
           change={changeLead}
           close={() => setSelected(null)}
+          member={member}
         />
       )}
     </main>
@@ -446,7 +451,7 @@ function LoginScreen({ onSignIn }: { onSignIn: (token: string, member: 'Tiffany'
         <h1>Welcome back.</h1>
         <p>Sign in to the shared workspace.</p>
         <label>Your name<select name="member"><option>Tiffany</option><option>Xachil</option></select></label>
-        <label>Shared passcode<input name="passcode" type="password" required autoComplete="current-password" /></label>
+        <label>Your password<input name="passcode" type="password" required autoComplete="current-password" /></label>
         {error && <div className="login-error">{error}</div>}
         <button className="primary" disabled={loading}>{loading ? 'Opening…' : 'Open workroom'}</button>
       </form>
@@ -480,11 +485,13 @@ function Dashboard({
   tasks,
   open,
   add,
+  member,
 }: {
   leads: Lead[];
   tasks: WeeklyTask[];
   open: (v: string) => void;
   add: () => void;
+  member: 'Tiffany' | 'Xachil';
 }) {
   const count = (s: string) => leads.filter((x) => x.status === s).length;
   const [taskBrand, setTaskBrand] = useState<WeeklyTask['brand']>('The Daily Session');
@@ -500,7 +507,7 @@ function Dashboard({
     <>
       <Header
         eyebrow={todayLabel.replace(', ', ' · ')}
-        title="Tiffany & Xachil"
+        title={member}
         sub="Contacts, weekly outreach, and follow ups."
         action={
           <button className="primary add-prominent" onClick={add}>
@@ -508,25 +515,6 @@ function Dashboard({
           </button>
         }
       />
-      <div className="status-strip">
-        {[
-          ['Contacted', count('Contacted')],
-          ['Follow up', count('Follow Up')],
-          ['Joined', count('Joined')],
-          ['Archived', count('Archived / Not a Good Fit')],
-        ].map(([label, value]) => (
-          <button
-            key={label}
-            onClick={() =>
-              open(label === 'Follow up' ? 'Follow ups' : 'Pipeline')
-            }
-          >
-            <span>{value}</span>
-            <small>{label}</small>
-            <ArrowUpRight size={14} />
-          </button>
-        ))}
-      </div>
       <div className="dashboard-grid">
         <section className="priority-card dark">
           <div className="card-head">
@@ -559,11 +547,11 @@ function Dashboard({
             <button className={taskBrand === 'The Healing Directory' ? 'active' : ''} onClick={() => setTaskBrand('The Healing Directory')}>The Healing Directory</button>
           </div>
           {brandTasks.map((task) => (
-            <div className="task" key={task.name}>
-              <i className={task.priority === 'High' ? 'high' : ''} />
+            <div className={`task ${task.done || (task.goal && (task.progress || 0) >= task.goal) ? 'done' : 'in-progress'}`} key={`${task.brand}-${task.name}`}>
+              <i />
               <div>
                 <strong>{task.name}</strong>
-                <small>{task.goal ? `${task.progress || 0}/${task.goal} reached` : task.done ? 'Completed' : 'Open'}</small>
+                <small>{task.goal ? `${task.progress || 0}/${task.goal} reached · ${task.priority}` : task.done ? `Completed · ${task.priority}` : task.priority}</small>
               </div>
             </div>
           ))}
@@ -928,10 +916,12 @@ function ContactDetail({
   lead,
   change,
   close,
+  member,
 }: {
   lead: Lead;
   change: (x: Lead) => void;
   close: () => void;
+  member: 'Tiffany' | 'Xachil';
 }) {
   const [update, setUpdate] = useState(''),
     [task, setTask] = useState('');
@@ -940,7 +930,7 @@ function ContactDetail({
     change({
       ...lead,
       updates: [
-        { text: update, date: 'Just now', by: 'Tiffany' },
+        { text: update, date: 'Just now', by: member },
         ...lead.updates,
       ],
     });
@@ -1135,7 +1125,7 @@ const baselineTasks: WeeklyTask[] = [
   { name: 'Reshare relevant stories and posts', brand: 'The Healing Directory', done: false, priority: 'Low' },
   { name: 'Reshare relevant stories and posts', brand: 'The Daily Session', done: false, priority: 'Low' },
 ];
-function Tasks({ tasks, setTasks, previousTasks }: { tasks: WeeklyTask[]; setTasks: (tasks: WeeklyTask[]) => void; previousTasks: WeeklyTask[] }) {
+function Tasks({ tasks, setTasks, previousTasks, member, syncStatus }: { tasks: WeeklyTask[]; setTasks: (tasks: WeeklyTask[]) => void; previousTasks: WeeklyTask[]; member: 'Tiffany' | 'Xachil'; syncStatus: 'saving' | 'saved' | 'error' }) {
   const currentSunday = sundayOf(new Date());
   const previousSunday = new Date(currentSunday);
   previousSunday.setDate(previousSunday.getDate() - 7);
@@ -1161,15 +1151,15 @@ function Tasks({ tasks, setTasks, previousTasks }: { tasks: WeeklyTask[]; setTas
       <Header
         eyebrow={`SUNDAY–SATURDAY · WEEK OF ${prettyDate(currentSunday).toUpperCase()}`}
         title="This week’s checklist"
-        sub="Check off each task as it’s completed. Add extras whenever they come up."
-        action={
+        sub={member === 'Tiffany' ? 'Check off the work, adjust priorities, or add what this week needs.' : 'Check off work as you complete it. Tiffany manages the task list and priorities.'}
+        action={member === 'Tiffany' ? (
           <button
             className="primary"
             onClick={() => document.getElementById('new-week-task')?.focus()}
           >
             + Add weekly task
           </button>
-        }
+        ) : undefined}
       />
       <div className="brand-task-toggle" aria-label="Choose task brand">
         <button className={brandFilter === 'The Daily Session' ? 'active' : ''} onClick={() => setBrandFilter('The Daily Session')}>The Daily Session</button>
@@ -1182,6 +1172,7 @@ function Tasks({ tasks, setTasks, previousTasks }: { tasks: WeeklyTask[]; setTas
           </button>
         ))}
       </div>
+      <p className={`sync-note ${syncStatus}`}>{syncStatus === 'saving' ? 'Saving to Airtable…' : syncStatus === 'error' ? 'Could not save—check your connection.' : 'Saved to Airtable for Tiffany and Xachil'}</p>
       <section className="task-panel current-week-panel tasks-only">
           <div className="section-title">
             <div>
@@ -1195,7 +1186,7 @@ function Tasks({ tasks, setTasks, previousTasks }: { tasks: WeeklyTask[]; setTas
           <div className="task-progress">
             <i style={{ width: `${brandTasks.length ? (completed / brandTasks.length) * 100 : 0}%` }} />
           </div>
-          <div className="quick-add">
+          {member === 'Tiffany' && <div className="quick-add">
             <input
               id="new-week-task"
               value={newTask}
@@ -1209,7 +1200,7 @@ function Tasks({ tasks, setTasks, previousTasks }: { tasks: WeeklyTask[]; setTas
               <option>Low</option>
             </select>
             <button onClick={add}>Add to this week</button>
-          </div>
+          </div>}
           {visibleTasks.map((t) => {
             const i = tasks.indexOf(t);
             const done = isComplete(t);
@@ -1223,9 +1214,7 @@ function Tasks({ tasks, setTasks, previousTasks }: { tasks: WeeklyTask[]; setTas
               </button>
               <div>
                 <strong>{t.name}</strong>
-                <small>
-                  {t.goal ? `${t.progress || 0} of ${t.goal} reached` : t.extra ? 'Added this week' : 'Weekly task'}
-                </small>
+                <small>{t.goal ? `${t.progress || 0} of ${t.goal} reached` : t.priority}</small>
               </div>
               {t.goal && (
                 <div className="goal-stepper">
@@ -1234,11 +1223,11 @@ function Tasks({ tasks, setTasks, previousTasks }: { tasks: WeeklyTask[]; setTas
                   <button aria-label={`Add one to ${t.name}`} onClick={() => updateTask(i, { progress: Math.min(t.goal || 0, (t.progress || 0) + 1) })}>+</button>
                 </div>
               )}
-              <select className="task-priority-select" value={t.priority} onChange={(event) => updateTask(i, { priority: event.target.value as TaskPriority })} aria-label={`Priority for ${t.name}`}>
+              {member === 'Tiffany' ? <select className="task-priority-select" value={t.priority} onChange={(event) => updateTask(i, { priority: event.target.value as TaskPriority })} aria-label={`Priority for ${t.name}`}>
                 <option>High</option>
                 <option>Normal</option>
                 <option>Low</option>
-              </select>
+              </select> : <span className="task-priority-label">{t.priority}</span>}
             </div>
             );
           })}
@@ -1265,7 +1254,7 @@ function Tasks({ tasks, setTasks, previousTasks }: { tasks: WeeklyTask[]; setTas
     </>
   );
 }
-function Hours() {
+function Hours({ member }: { member: 'Tiffany' | 'Xachil' }) {
   type HourLog = {
     airtableId?: string;
     weekOf: string;
@@ -1274,22 +1263,12 @@ function Hours() {
     brands: string;
     notes: string;
     paid: boolean;
+    loggedBy?: string;
   };
   const [showForm, setShowForm] = useState(false);
   const [logs, setLogs] = useState<HourLog[]>(() => {
     try {
-      return (
-        JSON.parse(localStorage.getItem('outreach-hours') || 'null') || [
-          {
-            weekOf: dateKey(sundayOf(new Date())),
-            date: '2026-09-02',
-            hours: 1,
-            brands: 'The Daily Session + The Healing Directory',
-            notes: 'Interview',
-            paid: true,
-          },
-        ]
-      );
+      return JSON.parse(localStorage.getItem('outreach-hours') || '[]');
     } catch {
       return [];
     }
@@ -1303,7 +1282,9 @@ function Hours() {
       .then((data) => Array.isArray(data.hours) && setLogs(data.hours))
       .catch(() => {});
   }, []);
-  const total = logs.reduce((sum, log) => sum + Number(log.hours), 0);
+  const currentWeekKey = dateKey(sundayOf(new Date()));
+  const currentWeekLogs = logs.filter((log) => log.weekOf === currentWeekKey);
+  const total = currentWeekLogs.reduce((sum, log) => sum + Number(log.hours), 0);
   const addHours = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
@@ -1315,6 +1296,7 @@ function Hours() {
         brands: String(form.get('brand')),
         notes: String(form.get('notes')),
         paid: false,
+        loggedBy: member,
       };
     setLogs([entry, ...logs]);
     setShowForm(false);
@@ -1332,11 +1314,11 @@ function Hours() {
     <>
       <Header
         eyebrow="TIME & ACTIVITY"
-        title="Hours"
-        sub="A simple record of focused work across both brands."
+        title="Shift log"
+        sub="Document each shift so both of you can see the work and hours in Airtable."
         action={
           <button className="primary" onClick={() => setShowForm(!showForm)}>
-            + Add hours
+            + Log a shift
           </button>
         }
       />
@@ -1374,7 +1356,7 @@ function Hours() {
             Shift notes
             <input name="notes" placeholder="What was worked on?" />
           </label>
-          <button className="primary">Save hours</button>
+          <button className="primary">Save shift</button>
         </form>
       )}
       <div className="hours-summary">
@@ -1385,7 +1367,7 @@ function Hours() {
         <div>
           <small>THE DAILY SESSION</small>
           <strong>
-            {logs
+            {currentWeekLogs
               .filter((x) => x.brands.includes('Daily') || x.brands === 'Both')
               .reduce((s, x) => s + x.hours, 0)
               .toFixed(2)}
@@ -1395,7 +1377,7 @@ function Hours() {
         <div>
           <small>HEALING DIRECTORY</small>
           <strong>
-            {logs
+            {currentWeekLogs
               .filter(
                 (x) => x.brands.includes('Healing') || x.brands === 'Both',
               )
@@ -1409,9 +1391,9 @@ function Hours() {
         <div className="section-title">
           <div>
             <p className="eyebrow">RECENT ACTIVITY</p>
-            <h2>Time log</h2>
+            <h2>Saved shifts</h2>
           </div>
-          <button onClick={() => setShowForm(!showForm)}>+ Add hours</button>
+          <button onClick={() => setShowForm(!showForm)}>+ Log a shift</button>
         </div>
         <div className="hours-table-head">
           <span>Week Of</span>
@@ -1419,6 +1401,7 @@ function Hours() {
           <span>Total Hours</span>
           <span>Brand</span>
           <span>Shift Notes</span>
+          <span>Logged By</span>
           <span>Paid</span>
         </div>
         {logs.map((x, index) => (
@@ -1428,6 +1411,7 @@ function Hours() {
             <strong>{x.hours}</strong>
             <span>{x.brands}</span>
             <span>{x.notes || '—'}</span>
+            <span>{x.loggedBy || '—'}</span>
             <label>
               <input
                 type="checkbox"
@@ -1484,11 +1468,9 @@ function Settings() {
 function AddModal({
   close,
   submit,
-  member,
 }: {
   close: () => void;
   submit: (e: React.FormEvent<HTMLFormElement>) => void;
-  member: 'Tiffany' | 'Xachil';
 }) {
   const [brand, setBrand] = useState('The Daily Session');
   const contactTypes =
@@ -1555,13 +1537,6 @@ function AddModal({
           <label>
             Follow-up date
             <input name="due" type="date" />
-          </label>
-          <label>
-            Added by
-            <select name="addedBy" defaultValue={member}>
-              <option>Tiffany</option>
-              <option>Xachil</option>
-            </select>
           </label>
         </div>
         <label>

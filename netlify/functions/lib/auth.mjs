@@ -27,8 +27,13 @@ export function verifySession(event) {
   }
 }
 
-export function matchesPasscode(value) {
-  const expected = Buffer.from(process.env.WORKROOM_PASSCODE || '');
+export function matchesPasscode(member, value) {
+  const configured = member === 'Tiffany'
+    ? process.env.WORKROOM_TIFFANY_PASSCODE
+    : member === 'Xachil'
+      ? process.env.WORKROOM_XACHIL_PASSCODE
+      : '';
+  const expected = Buffer.from(configured || '');
   const supplied = Buffer.from(String(value || ''));
   return expected.length > 0 && expected.length === supplied.length && timingSafeEqual(expected, supplied);
 }

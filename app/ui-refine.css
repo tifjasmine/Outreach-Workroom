@@ -30,6 +30,12 @@
 .goal-stepper button { width: 28px; height: 28px; border: 1px solid var(--line); border-radius: 50%; background: white; color: var(--green); }
 .goal-stepper strong { min-width: 38px; text-align: center; color: var(--green); font-size: 11px; }
 .task-priority-select { flex: 0 0 auto; border: 1px solid var(--line); border-radius: 999px; background: #eee6d8; padding: 7px 9px; color: var(--ink); font-size: 9px; }
+.task-priority-label { flex: 0 0 auto; border-radius: 999px; background: #eee6d8; padding: 8px 11px; color: var(--ink); font-size: 9px; }
+.sync-note { margin: -5px 0 12px; color: var(--muted); font-size: 10px; }
+.sync-note.error { color: var(--coral); }
+.hours-table-head, .hours-table-row { grid-template-columns: 110px 100px 80px 1.25fr 1.4fr 80px 45px; }
+.task.in-progress i { background: var(--coral); }
+.task.done i { background: var(--green); }
 .task-brand-select { flex: 0 0 auto; max-width: 145px; border: 1px solid var(--line); border-radius: 999px; background: #dfe9df; padding: 7px 9px; color: var(--green); font-size: 9px; }
 .login-shell { min-height: 100dvh; display: grid; place-items: center; padding: 20px; background: var(--green); }
 .login-card { width: min(420px, 100%); padding: 34px; border-radius: 24px; background: var(--paper); box-shadow: 0 30px 80px #0004; }

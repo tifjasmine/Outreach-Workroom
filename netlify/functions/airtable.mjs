@@ -141,6 +141,7 @@ function hourFromRecord(record) {
     brands,
     notes: f['Shift Notes'] || '',
     paid: Boolean(f.Paid),
+    loggedBy: String(f.Entry || '').split(' · ')[2] || '',
   };
 }
 
@@ -149,7 +150,7 @@ function hourFields(hour) {
     ? ['The Daily Session', 'The Healing Directory']
     : [hour.brands];
   return {
-    Entry: `${hour.date} · ${Number(hour.hours)}h`,
+    Entry: `${hour.date} · ${Number(hour.hours)}h · ${hour.loggedBy || ''}`,
     'Week Of': hour.weekOf,
     Date: hour.date,
     'Total Hours': Number(hour.hours),
@@ -161,7 +162,8 @@ function hourFields(hour) {
 
 export async function handler(event) {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers, body: '' };
-  if (!verifySession(event)) return response(401, { error: 'Sign in required' });
+  const session = verifySession(event);
+  if (!session) return response(401, { error: 'Sign in required' });
   const resource = event.queryStringParameters?.resource;
   try {
     if (event.httpMethod === 'GET') {
@@ -193,11 +195,17 @@ export async function handler(event) {
       const saved = [];
       for (const task of body.tasks || []) {
         const match = task.airtableId ? existing.find((record) => record.id === task.airtableId) : byKey.get(`${task.weekOf}|${task.brand}|${task.name}`);
+        if (session.member !== 'Tiffany' && !match) return response(403, { error: 'Only Tiffany can add tasks.' });
+        const safeTask = session.member === 'Tiffany' || !match ? task : {
+          ...taskFromRecord(match),
+          done: Boolean(task.done),
+          progress: Number(task.progress || 0),
+        };
         if (match) {
-          const data = await airtable('tasks', `/${match.id}`, { method: 'PATCH', body: JSON.stringify({ fields: taskFields(task), typecast: true }) });
+          const data = await airtable('tasks', `/${match.id}`, { method: 'PATCH', body: JSON.stringify({ fields: taskFields(safeTask), typecast: true }) });
           saved.push(taskFromRecord(data));
         } else {
-          const data = await airtable('tasks', '', { method: 'POST', body: JSON.stringify({ records: [{ fields: taskFields(task) }], typecast: true }) });
+          const data = await airtable('tasks', '', { method: 'POST', body: JSON.stringify({ records: [{ fields: taskFields(safeTask) }], typecast: true }) });
           saved.push(taskFromRecord(data.records[0]));
         }
       }
