@@ -164,12 +164,12 @@ export async function handler(event) {
         const [contacts, tasks, hours, activity] = await Promise.all([list('contacts'), list('tasks'), list('hours'), list('activity')]);
         const contactActivity = new Map(activity.map(activitySnapshot));
         return response(200, {
-          contacts: contacts.map((record) => contactFromRecord(record, contactActivity.get(record.id))),
+          contacts: contacts.filter((record) => String(record.fields?.['Contact Name'] || '').trim()).map((record) => contactFromRecord(record, contactActivity.get(record.id))),
           tasks: tasks.map(taskFromRecord),
-          hours: hours.map(hourFromRecord),
+          hours: hours.filter((record) => record.fields?.Date).map(hourFromRecord),
         });
       }
-      if (resource === 'hours') return response(200, { hours: (await list('hours')).map(hourFromRecord) });
+      if (resource === 'hours') return response(200, { hours: (await list('hours')).filter((record) => record.fields?.Date).map(hourFromRecord) });
     }
 
     const body = JSON.parse(event.body || '{}');

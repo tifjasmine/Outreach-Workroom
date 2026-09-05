@@ -215,7 +215,15 @@ export default function Home() {
     } catch {}
     airtableApi<{ contacts: Lead[]; tasks: WeeklyTask[]; hours: unknown[] }>('?resource=all')
       .then((data) => {
-        if (Array.isArray(data.contacts)) setLeads(data.contacts);
+        if (Array.isArray(data.contacts)) {
+          if (!data.contacts.length && localContacts?.length) {
+            Promise.all(localContacts.map((contact) =>
+              airtableApi<Lead>('?resource=contacts', { method: 'POST', body: JSON.stringify(contact) }),
+            )).then(setLeads).catch(() => setLeads(localContacts!));
+          } else {
+            setLeads(data.contacts);
+          }
+        }
         if (Array.isArray(data.tasks)) {
           const current = data.tasks.filter((task: WeeklyTask) => task.weekOf === currentTaskKey);
           const previous = data.tasks.filter((task: WeeklyTask) => task.weekOf && task.weekOf < currentTaskKey);
