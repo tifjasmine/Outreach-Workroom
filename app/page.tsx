@@ -366,7 +366,7 @@ export default function Home() {
           <span>{member === 'Tiffany' ? 'TW' : 'X'}</span>
           <div>
             <strong>{member}</strong>
-            <button onClick={signOut}>Sign out</button>
+            <button className="logout-button" onClick={signOut}>Log out</button>
           </div>
         </div>
       </aside>
