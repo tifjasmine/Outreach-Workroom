@@ -33,7 +33,7 @@ type Lead = {
   tasks: ContactTask[];
 };
 const statuses = [
-  'Contacted',
+  'Follow Up Sent',
   'Follow Up',
   'Joined',
   'Archived / Not a Good Fit',
@@ -67,7 +67,7 @@ const seed: Lead[] = [
     email: 'hello@grounded.co',
     brand: 'The Healing Directory',
     type: 'Provider',
-    status: 'Contacted',
+    status: 'Follow Up Sent',
     note: 'Wants September details',
     addedBy: 'Assistant',
     updates: [],
@@ -79,7 +79,7 @@ const seed: Lead[] = [
     handle: '@luminapilates',
     brand: 'The Daily Session',
     type: 'Studio',
-    status: 'Contacted',
+    status: 'Follow Up Sent',
     note: 'New Rittenhouse studio',
     addedBy: 'Assistant',
     updates: [],
@@ -91,7 +91,7 @@ const seed: Lead[] = [
     handle: '@softspacephl',
     brand: 'The Daily Session',
     type: 'Studio',
-    status: 'Contacted',
+    status: 'Follow Up Sent',
     note: 'Sent directory invitation',
     addedBy: 'Tiffany',
     updates: [],
@@ -116,7 +116,7 @@ const seed: Lead[] = [
     handle: '@rootandrise',
     brand: 'The Healing Directory',
     type: 'Group Practice',
-    status: 'Contacted',
+    status: 'Follow Up Sent',
     note: 'Application received',
     addedBy: 'Tiffany',
     updates: [],
@@ -214,11 +214,12 @@ export default function Home() {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
           const stageMap: Record<string, string> = {
-            'To Contact': 'Contacted',
-            Messaged: 'Contacted',
+            'To Contact': 'Follow Up Sent',
+            Contacted: 'Follow Up Sent',
+            Messaged: 'Follow Up Sent',
             Replied: 'Follow Up',
             Interested: 'Follow Up',
-            Applied: 'Contacted',
+            Applied: 'Follow Up Sent',
           };
           localContacts = parsed.map((contact: Lead) => ({
               ...contact,
@@ -400,6 +401,8 @@ export default function Home() {
             open={setSelected}
             add={() => setAddOpen(true)}
           />
+        ) : view === 'Follow ups' ? (
+          <FollowUps leads={leads} open={setSelected} />
         ) : view === 'Tasks' ? (
           <Tasks tasks={weeklyTasks} setTasks={setWeeklyTasks} previousTasks={previousTasks} member={member} syncStatus={taskSyncStatus} />
         ) : view === 'Shift Log' ? (
@@ -621,9 +624,9 @@ function Brand({
         </div>
         <div>
           <strong>
-            {leads.filter((x) => x.status === 'Contacted').length}
+            {leads.filter((x) => x.status === 'Follow Up Sent').length}
           </strong>
-          <small>Contacted</small>
+          <small>Follow up sent</small>
         </div>
         <div>
           <strong>
@@ -795,18 +798,39 @@ function Contacts({
   add: () => void;
 }) {
   const [q, setQ] = useState(''),
-    [brand, setBrand] = useState('All');
+    [brand, setBrand] = useState('All'),
+    [stage, setStage] = useState('All'),
+    [type, setType] = useState('All'),
+    [addedBy, setAddedBy] = useState('All'),
+    [pageSize, setPageSize] = useState(10),
+    [visibleCount, setVisibleCount] = useState(10);
+  useEffect(() => {
+    const updateSize = () => {
+      const size = window.innerWidth <= 850 ? 5 : 10;
+      setPageSize(size);
+      setVisibleCount(size);
+    };
+    updateSize();
+    window.addEventListener('resize', updateSize);
+    return () => window.removeEventListener('resize', updateSize);
+  }, []);
   const shown = useMemo(
     () =>
       leads.filter(
         (x) =>
           (brand === 'All' || x.brand === brand) &&
+          (stage === 'All' || x.status === stage) &&
+          (type === 'All' || x.type === type) &&
+          (addedBy === 'All' || x.addedBy === addedBy) &&
           `${x.name} ${x.handle} ${x.email}`
             .toLowerCase()
             .includes(q.toLowerCase()),
       ),
-    [leads, q, brand],
+    [leads, q, brand, stage, type, addedBy],
   );
+  useEffect(() => setVisibleCount(pageSize), [q, brand, stage, type, addedBy, pageSize]);
+  const contactTypes = Array.from(new Set(leads.map((lead) => lead.type).filter(Boolean))).sort();
+  const visible = shown.slice(0, visibleCount);
   return (
     <>
       <Header
@@ -829,13 +853,27 @@ function Contacts({
           />
         </label>
         <select value={brand} onChange={(e) => setBrand(e.target.value)}>
-          <option>All</option>
+          <option value="All">All brands</option>
           <option>The Daily Session</option>
           <option>The Healing Directory</option>
         </select>
+        <select value={stage} onChange={(e) => setStage(e.target.value)}>
+          <option value="All">All stages</option>
+          {statuses.map((item) => <option key={item}>{item}</option>)}
+        </select>
+        <select value={type} onChange={(e) => setType(e.target.value)}>
+          <option value="All">All contact types</option>
+          {contactTypes.map((item) => <option key={item}>{item}</option>)}
+        </select>
+        <select value={addedBy} onChange={(e) => setAddedBy(e.target.value)}>
+          <option value="All">Added by anyone</option>
+          <option>Tiffany</option>
+          <option>Xachil</option>
+        </select>
+        <button className="clear-contact-filters" onClick={() => { setQ(''); setBrand('All'); setStage('All'); setType('All'); setAddedBy('All'); }}>Clear</button>
         <span>{shown.length} contacts</span>
       </div>
-      <div className="contact-list">
+      <div className="contact-list contact-scroll">
         <div className="contact-list-head">
           <span>Contact</span>
           <span>Brand</span>
@@ -843,7 +881,7 @@ function Contacts({
           <span>Follow up</span>
           <span>Added by</span>
         </div>
-        {shown.map((x) => (
+        {visible.map((x) => (
           <button
             className="contact-list-row"
             key={x.id}
@@ -871,8 +909,36 @@ function Contacts({
           </button>
         ))}
       </div>
+      {visibleCount < shown.length && <button className="load-more" onClick={() => setVisibleCount((count) => count + pageSize)}>Load more contacts</button>}
     </>
   );
+}
+
+function FollowUps({ leads, open }: { leads: Lead[]; open: (id: number | string) => void }) {
+  const dueRank = (due?: string) => {
+    if (!due) return Number.POSITIVE_INFINITY;
+    if (due === 'Today') return Date.now();
+    if (due === 'Tomorrow') return Date.now() + 86400000;
+    const parsed = Date.parse(due);
+    return Number.isNaN(parsed) ? Number.POSITIVE_INFINITY - 1 : parsed;
+  };
+  const actionable = leads
+    .filter((lead) => !['Joined', 'Archived / Not a Good Fit'].includes(lead.status))
+    .sort((a, b) => {
+      const difference = dueRank(a.due) - dueRank(b.due);
+      return difference || a.name.localeCompare(b.name);
+    });
+  return <>
+    <Header eyebrow="FOLLOW-UP QUEUE" title="Who needs a follow up?" sub="Dated follow ups come first. Contacts without a date stay visible below so nobody gets lost." />
+    <div className="followup-scroll">
+      {actionable.map((lead) => <button className="followup-row" key={lead.id} onClick={() => open(lead.id)}>
+        <span><strong>{lead.name}</strong><small>{lead.handle || lead.email || lead.type}</small></span>
+        <b className={`brand-pill ${lead.brand.includes('Healing') ? 'thd' : ''}`}>{lead.brand.includes('Healing') ? 'THD' : 'TDS'}</b>
+        <span className={lead.due ? 'followup-date' : 'followup-date missing'}>{lead.due ? `Due ${lead.due}` : 'Needs a follow-up date'}</span>
+      </button>)}
+      {!actionable.length && <p className="empty-followups">Nothing needs a follow up right now.</p>}
+    </div>
+  </>;
 }
 function ContactTable({
   leads,
@@ -893,7 +959,7 @@ function ContactTable({
               'Instagram / Email',
               'Brand',
               'Stage',
-              'Follow Up',
+              'Follow-up date',
               'Added By',
             ].map((x) => (
               <th key={x}>{x}</th>
@@ -919,7 +985,7 @@ function ContactTable({
                   ))}
                 </select>
               </td>
-              <td data-label="Follow Up">{x.due || '—'}</td>
+              <td data-label="Follow-up date">{x.due || '—'}</td>
               <td data-label="Added By">{x.addedBy}</td>
             </tr>
           ))}
@@ -1239,7 +1305,7 @@ function Tasks({ tasks, setTasks, previousTasks, member, syncStatus }: { tasks: 
                 <div className="goal-stepper">
                   <button aria-label={`Remove one from ${t.name}`} onClick={() => updateTask(i, { progress: Math.max(0, (t.progress || 0) - 1), done: false })}>−1</button>
                   <strong>{t.progress || 0}/{t.goal}</strong>
-                  <button className="reached-button" aria-label={`Add one to ${t.name}`} onClick={() => updateTask(i, { progress: Math.min(t.goal || 0, (t.progress || 0) + 1) })}>+1 reached</button>
+                  <button className="reached-button" aria-label={`Add one to ${t.name}`} onClick={() => updateTask(i, { progress: Math.min(t.goal || 0, (t.progress || 0) + 1) })}>+ Add one</button>
                 </div>
               )}
               {member === 'Tiffany' ? <select className="task-priority-select" value={t.priority} onChange={(event) => updateTask(i, { priority: event.target.value as TaskPriority })} aria-label={`Priority for ${t.name}`}>

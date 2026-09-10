@@ -57,7 +57,7 @@ function contactFromRecord(record, shared = {}) {
     brand: f.Brand || 'The Daily Session',
     type: f['Contact Type'] || 'Studio',
     offering: Array.isArray(f['Offering Type']) ? f['Offering Type'] : [],
-    status: f.Stage || 'Contacted',
+    status: f.Stage === 'Contacted' ? 'Follow Up Sent' : (f.Stage || 'Follow Up Sent'),
     note: f.Notes || '',
     due: f['Follow Up Date'] || '',
     addedBy: f['Added By'] || 'Tiffany',

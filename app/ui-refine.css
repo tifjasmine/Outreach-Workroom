@@ -26,9 +26,9 @@
 .task-row { cursor: default; }
 .task-check { width: 25px; height: 25px; flex: 0 0 25px; border: 1px solid var(--line); border-radius: 50%; background: white; color: white; }
 .task-row.done .task-check { background: var(--green); }
-.goal-stepper { flex: 0 0 auto !important; display: flex !important; flex-direction: row !important; align-items: center; gap: 7px !important; }
-.goal-stepper button { min-width: 38px; height: 32px; border: 1px solid var(--line); border-radius: 9px; background: white; color: var(--green); }
-.goal-stepper .reached-button { min-width: 86px; background: var(--green); border-color: var(--green); color: white; }
+.goal-stepper { flex: 0 0 auto !important; display: flex !important; flex-direction: row !important; align-items: center; gap: 3px !important; padding: 4px; border: 1px solid var(--line); border-radius: 12px; background: #eee7db; }
+.goal-stepper button { min-width: 34px; height: 32px; border: 0; border-radius: 8px; background: transparent; color: var(--green); font-weight: 700; }
+.goal-stepper .reached-button { min-width: 82px; background: var(--green); color: white; }
 .goal-stepper strong { min-width: 38px; text-align: center; color: var(--green); font-size: 11px; }
 .goal-status { width: 25px; height: 25px; flex: 0 0 25px; display: grid; place-items: center; border-radius: 50%; background: #eee6d8; color: var(--green); font-size: 9px; font-weight: 800; }
 .goal-status.done { background: var(--green); color: white; }
@@ -47,6 +47,20 @@
 .offering-pills button { border: 1px solid var(--line); border-radius: 999px; background: var(--paper); padding: 6px 9px; color: var(--muted); font-size: 9px; }
 .offering-pills button.selected { border-color: var(--green); background: #dfe9df; color: var(--green); }
 .duplicate-alert { margin: 0 0 14px; padding: 11px 12px; border: 1px solid #d7644060; border-radius: 10px; background: #fff0eb; color: #a33f23; font-size: 11px; line-height: 1.4; }
+.contact-toolbar { flex-wrap: wrap; }
+.contact-toolbar > select { min-height: 40px; }
+.clear-contact-filters { min-height: 40px; border: 0; background: transparent; color: var(--green); font-size: 10px; font-weight: 700; }
+.contact-scroll { max-height: 58vh; overflow-y: auto; overscroll-behavior: contain; }
+.contact-scroll .contact-list-head { position: sticky; z-index: 1; top: 0; }
+.load-more { display: block; margin: 14px auto 0; border: 1px solid var(--line); border-radius: 999px; background: var(--paper); padding: 11px 18px; color: var(--green); font-size: 11px; font-weight: 700; }
+.followup-scroll { max-height: 65vh; overflow-y: auto; overscroll-behavior: contain; border: 1px solid var(--line); border-radius: 18px; background: var(--paper); }
+.followup-row { display: grid; grid-template-columns: minmax(220px, 1fr) auto 180px; gap: 16px; align-items: center; width: 100%; padding: 17px 20px; border: 0; border-bottom: 1px solid var(--line); background: transparent; color: var(--ink); text-align: left; }
+.followup-row > span:first-child { display: flex; flex-direction: column; gap: 5px; }
+.followup-row strong { font: 17px Georgia; color: var(--green); }
+.followup-row small { color: var(--muted); font-size: 10px; }
+.followup-date { color: var(--green); font-size: 10px; font-weight: 700; text-align: right; }
+.followup-date.missing { color: var(--coral); }
+.empty-followups { padding: 30px; color: var(--muted); text-align: center; }
 .hours-table-head, .hours-table-row { grid-template-columns: 110px 100px 80px 1.25fr 1.4fr 80px 45px; }
 .task.in-progress i { background: var(--coral); }
 .task.done i { background: var(--green); }
@@ -102,6 +116,14 @@
   .workspace header > .primary, .workspace header > .header-actions { width: max-content; max-width: 100%; margin-top: 14px; }
   .workspace header p:last-child { display: block; line-height: 1.45; }
   .contact-detail { height: 100dvh; }
+  .contact-toolbar { display: grid; grid-template-columns: 1fr 1fr; }
+  .contact-toolbar label { grid-column: 1 / -1; }
+  .contact-toolbar > select { width: 100%; min-width: 0; }
+  .contact-toolbar > span { margin: 0; align-self: center; }
+  .contact-scroll { max-height: 55vh; }
+  .followup-scroll { max-height: 62vh; }
+  .followup-row { grid-template-columns: minmax(0, 1fr) auto; padding: 15px; }
+  .followup-date { grid-column: 1 / -1; text-align: left; }
   .detail-body { overflow: auto; }
   .detail-body > main { overflow: visible; padding: 18px; }
   .updates { padding: 18px; }
