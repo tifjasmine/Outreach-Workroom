@@ -28,6 +28,8 @@ type Lead = {
   status: string;
   note: string;
   due?: string;
+  lastSpotlightedClass?: string;
+  lastSpotlightedStudio?: string;
   addedBy: string;
   updates: Update[];
   tasks: ContactTask[];
@@ -302,6 +304,8 @@ export default function Home() {
       offering: f.getAll('offering').map(String),
       status: String(f.get('status')),
       due: String(f.get('due') || ''),
+      lastSpotlightedClass: String(f.get('lastSpotlightedClass') || ''),
+      lastSpotlightedStudio: String(f.get('lastSpotlightedStudio') || ''),
       note: String(f.get('note') || ''),
       addedBy: member,
       updates: [],
@@ -994,6 +998,8 @@ function ContactTable({
               'Brand',
               'Stage',
               'Follow-up date',
+              'Last spotlighted class',
+              'Last spotlighted studio',
               'Added By',
             ].map((x) => (
               <th key={x}>{x}</th>
@@ -1020,6 +1026,8 @@ function ContactTable({
                 </select>
               </td>
               <td data-label="Follow-up date">{x.due || '—'}</td>
+              <td data-label="Last spotlighted class">{x.lastSpotlightedClass || '—'}</td>
+              <td data-label="Last spotlighted studio">{x.lastSpotlightedStudio || '—'}</td>
               <td data-label="Added By">{x.addedBy}</td>
             </tr>
           ))}
@@ -1120,10 +1128,18 @@ function ContactDetail({
               <label>
                 Follow-up date
                 <input
+                  type="date"
                   value={lead.due || ''}
                   onChange={(e) => change({ ...lead, due: e.target.value })}
-                  placeholder="Sep 8"
                 />
+              </label>
+              <label>
+                Last spotlighted class
+                <input type="date" value={lead.lastSpotlightedClass || ''} onChange={(e) => change({ ...lead, lastSpotlightedClass: e.target.value })} />
+              </label>
+              <label>
+                Last spotlighted studio
+                <input type="date" value={lead.lastSpotlightedStudio || ''} onChange={(e) => change({ ...lead, lastSpotlightedStudio: e.target.value })} />
               </label>
               <label>
                 Offering type
@@ -1674,6 +1690,14 @@ function AddModal({
           <label>
             Follow-up date
             <input name="due" type="date" />
+          </label>
+          <label>
+            Last spotlighted class
+            <input name="lastSpotlightedClass" type="date" />
+          </label>
+          <label>
+            Last spotlighted studio
+            <input name="lastSpotlightedStudio" type="date" />
           </label>
         </div>
         <fieldset className="offering-fieldset">

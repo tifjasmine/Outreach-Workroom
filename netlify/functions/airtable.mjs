@@ -60,6 +60,8 @@ function contactFromRecord(record, shared = {}) {
     status: f.Stage === 'Follow Up' ? 'Follow Up Sent' : (f.Stage || 'Contacted'),
     note: f.Notes || '',
     due: f['Follow Up Date'] || '',
+    lastSpotlightedClass: f['Last Spotlighted Class'] || '',
+    lastSpotlightedStudio: f['Last Spotlighted Studio'] || '',
     addedBy: f['Added By'] || 'Tiffany',
     updates: Array.isArray(shared.updates) ? shared.updates : [],
     tasks: Array.isArray(shared.tasks) ? shared.tasks : [],
@@ -76,6 +78,8 @@ function contactFields(contact) {
     'Offering Type': Array.isArray(contact.offering) ? contact.offering : [],
     Stage: contact.status,
     'Follow Up Date': contact.due || null,
+    'Last Spotlighted Class': contact.lastSpotlightedClass || null,
+    'Last Spotlighted Studio': contact.lastSpotlightedStudio || null,
     Notes: contact.note || '',
     'Added By': contact.addedBy || 'Tiffany',
   };
