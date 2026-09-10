@@ -518,9 +518,10 @@ function Dashboard({
     month: 'long',
     day: 'numeric',
   }).toUpperCase();
-  const completedTasks = tasks.filter((task) => task.done || (task.goal && (task.progress || 0) >= task.goal)).length;
-  const remainingTasks = tasks.length - completedTasks;
-  const brandTasks = tasks.filter((task) => task.brand === taskBrand);
+  const uniqueTasks = uniqueWeeklyTasks(tasks);
+  const completedTasks = uniqueTasks.filter((task) => task.done || (task.goal && (task.progress || 0) >= task.goal)).length;
+  const remainingTasks = uniqueTasks.length - completedTasks;
+  const brandTasks = uniqueTasks.filter((task) => task.brand === taskBrand);
   return (
     <>
       <Header
@@ -559,7 +560,7 @@ function Dashboard({
               <p className="eyebrow">THIS WEEK</p>
               <h2>{remainingTasks} tasks remaining</h2>
             </div>
-            <span className="week-count">{completedTasks}/{tasks.length} done</span>
+            <span className="week-count">{completedTasks}/{uniqueTasks.length} done</span>
           </div>
           <div className="dashboard-task-tabs" aria-label="Choose task brand">
             <button className={taskBrand === 'The Daily Session' ? 'active' : ''} onClick={() => setTaskBrand('The Daily Session')}>The Daily Session</button>
@@ -1201,6 +1202,19 @@ type WeeklyTask = {
   weekOf?: string;
   locked?: boolean;
 };
+function uniqueWeeklyTasks(tasks: WeeklyTask[]) {
+  const unique = new Map<string, WeeklyTask>();
+  for (const task of tasks) {
+    const key = `${task.weekOf || ''}|${task.brand}|${task.name.trim().toLowerCase()}`;
+    const existing = unique.get(key);
+    unique.set(key, existing ? {
+      ...existing,
+      done: existing.done || task.done,
+      progress: Math.max(Number(existing.progress || 0), Number(task.progress || 0)),
+    } : task);
+  }
+  return [...unique.values()];
+}
 const baselineTasks: WeeklyTask[] = [
   { name: 'Reach out to new partners', brand: 'The Healing Directory', done: false, priority: 'High', goal: 15, progress: 0 },
   { name: 'Reach out to new partners', brand: 'The Daily Session', done: false, priority: 'High', goal: 5, progress: 0 },
@@ -1210,6 +1224,7 @@ const baselineTasks: WeeklyTask[] = [
   { name: 'Reshare relevant stories and posts', brand: 'The Daily Session', done: false, priority: 'Low' },
 ];
 function Tasks({ tasks, setTasks, previousTasks, member, syncStatus }: { tasks: WeeklyTask[]; setTasks: (tasks: WeeklyTask[]) => void; previousTasks: WeeklyTask[]; member: 'Tiffany' | 'Xachil'; syncStatus: 'saving' | 'saved' | 'error' }) {
+  tasks = uniqueWeeklyTasks(tasks);
   const currentSunday = sundayOf(new Date());
   const previousSunday = new Date(currentSunday);
   previousSunday.setDate(previousSunday.getDate() - 7);

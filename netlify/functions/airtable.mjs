@@ -115,6 +115,21 @@ function taskFromRecord(record) {
   };
 }
 
+function dedupeTasks(records) {
+  const tasks = new Map();
+  for (const record of records) {
+    const task = taskFromRecord(record);
+    const key = `${task.weekOf}|${task.brand}|${task.name.trim().toLowerCase()}`;
+    const existing = tasks.get(key);
+    tasks.set(key, existing ? {
+      ...existing,
+      done: existing.done || task.done,
+      progress: Math.max(Number(existing.progress || 0), Number(task.progress || 0)),
+    } : task);
+  }
+  return [...tasks.values()];
+}
+
 function taskFields(task) {
   return {
     Task: task.name,
@@ -172,7 +187,7 @@ export async function handler(event) {
         const contactActivity = new Map(activity.map(activitySnapshot));
         return response(200, {
           contacts: contacts.filter((record) => String(record.fields?.['Contact Name'] || '').trim()).map((record) => contactFromRecord(record, contactActivity.get(record.id))),
-          tasks: tasks.map(taskFromRecord),
+          tasks: dedupeTasks(tasks),
           hours: hours.filter((record) => record.fields?.Date).map(hourFromRecord),
         });
       }
