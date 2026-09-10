@@ -33,8 +33,8 @@ type Lead = {
   tasks: ContactTask[];
 };
 const statuses = [
+  'Contacted',
   'Follow Up Sent',
-  'Follow Up',
   'Joined',
   'Archived / Not a Good Fit',
 ];
@@ -47,7 +47,7 @@ const seed: Lead[] = [
     email: 'hello@mahayoga.com',
     brand: 'The Daily Session',
     type: 'Studio / Business',
-    status: 'Follow Up',
+    status: 'Follow Up Sent',
     note: 'Asked for the media kit',
     due: 'Today',
     addedBy: 'Tiffany',
@@ -67,7 +67,7 @@ const seed: Lead[] = [
     email: 'hello@grounded.co',
     brand: 'The Healing Directory',
     type: 'Provider',
-    status: 'Follow Up Sent',
+    status: 'Contacted',
     note: 'Wants September details',
     addedBy: 'Assistant',
     updates: [],
@@ -79,7 +79,7 @@ const seed: Lead[] = [
     handle: '@luminapilates',
     brand: 'The Daily Session',
     type: 'Studio',
-    status: 'Follow Up Sent',
+    status: 'Contacted',
     note: 'New Rittenhouse studio',
     addedBy: 'Assistant',
     updates: [],
@@ -91,7 +91,7 @@ const seed: Lead[] = [
     handle: '@softspacephl',
     brand: 'The Daily Session',
     type: 'Studio',
-    status: 'Follow Up Sent',
+    status: 'Contacted',
     note: 'Sent directory invitation',
     addedBy: 'Tiffany',
     updates: [],
@@ -103,7 +103,7 @@ const seed: Lead[] = [
     handle: '@niamoves',
     brand: 'The Healing Directory',
     type: 'Provider',
-    status: 'Follow Up',
+    status: 'Follow Up Sent',
     note: 'Circle back after launch',
     due: '2026-09-08',
     addedBy: 'Assistant',
@@ -116,7 +116,7 @@ const seed: Lead[] = [
     handle: '@rootandrise',
     brand: 'The Healing Directory',
     type: 'Group Practice',
-    status: 'Follow Up Sent',
+    status: 'Contacted',
     note: 'Application received',
     addedBy: 'Tiffany',
     updates: [],
@@ -214,12 +214,12 @@ export default function Home() {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
           const stageMap: Record<string, string> = {
-            'To Contact': 'Follow Up Sent',
-            Contacted: 'Follow Up Sent',
-            Messaged: 'Follow Up Sent',
-            Replied: 'Follow Up',
-            Interested: 'Follow Up',
-            Applied: 'Follow Up Sent',
+            'To Contact': 'Contacted',
+            Messaged: 'Contacted',
+            'Follow Up': 'Follow Up Sent',
+            Replied: 'Follow Up Sent',
+            Interested: 'Follow Up Sent',
+            Applied: 'Contacted',
           };
           localContacts = parsed.map((contact: Lead) => ({
               ...contact,
@@ -550,13 +550,13 @@ function Dashboard({
           <div className="card-head">
             <div>
               <p className="eyebrow coral">FOLLOW UPS</p>
-              <h2>{count('Follow Up')} waiting</h2>
+              <h2>{leads.filter((lead) => !['Joined', 'Archived / Not a Good Fit'].includes(lead.status)).length} waiting</h2>
             </div>
-            <span>{count('Follow Up')} open</span>
+            <span>{leads.filter((lead) => !['Joined', 'Archived / Not a Good Fit'].includes(lead.status)).length} open</span>
           </div>
           <div className="focus-row">
             <div>
-              <strong>{count('Follow Up')}</strong>
+              <strong>{leads.filter((lead) => !['Joined', 'Archived / Not a Good Fit'].includes(lead.status)).length}</strong>
               <small>Follow ups waiting</small>
             </div>
             <button onClick={() => open('Follow ups')}>
@@ -578,7 +578,7 @@ function Dashboard({
           </div>
           {brandTasks.map((task) => (
             <div className={`task ${task.done || (task.goal && (task.progress || 0) >= task.goal) ? 'done' : 'in-progress'}`} key={`${task.brand}-${task.name}`}>
-              {!task.goal ? <button className="dashboard-task-check" aria-label={`Mark ${task.name} ${task.done ? 'incomplete' : 'complete'}`} onClick={() => updateTask(task, { done: !task.done })}>{task.done ? '✓' : ''}</button> : <i />}
+              <button className="dashboard-task-check" aria-label={`Mark ${task.name} ${task.done || (task.goal && (task.progress || 0) >= task.goal) ? 'incomplete' : 'complete'}`} onClick={() => task.goal ? updateTask(task, { progress: (task.progress || 0) >= task.goal ? 0 : task.goal, done: (task.progress || 0) < task.goal }) : updateTask(task, { done: !task.done })}>{task.done || (task.goal && (task.progress || 0) >= task.goal) ? '✓' : ''}</button>
               <div>
                 <strong>{task.name}</strong>
                 <small>{task.goal ? `${task.progress || 0}/${task.goal} reached · ${task.priority}` : task.done ? `Completed · ${task.priority}` : task.priority}</small>
@@ -640,13 +640,13 @@ function Brand({
         </div>
         <div>
           <strong>
-            {leads.filter((x) => x.status === 'Follow Up Sent').length}
+            {leads.filter((x) => x.status === 'Contacted').length}
           </strong>
-          <small>Follow up sent</small>
+          <small>Contacted</small>
         </div>
         <div>
           <strong>
-            {leads.filter((x) => x.status === 'Follow Up').length}
+            {leads.filter((x) => x.status === 'Follow Up Sent').length}
           </strong>
           <small>Due</small>
         </div>
@@ -1328,7 +1328,7 @@ function Tasks({ tasks, setTasks, previousTasks, member, syncStatus }: { tasks: 
               {!t.goal && <button className="task-check" aria-label={`Mark ${t.name} ${done ? 'incomplete' : 'complete'}`} onClick={() => updateTask(i, { done: !done })}>
                 {done ? '✓' : ''}
               </button>}
-              {t.goal && <span className={`goal-status ${done ? 'done' : ''}`}>{done ? '✓' : t.progress || 0}</span>}
+              {t.goal && <button className={`goal-status ${done ? 'done' : ''}`} aria-label={`Mark ${t.name} ${done ? 'incomplete' : 'complete'}`} onClick={() => updateTask(i, { progress: done ? 0 : t.goal, done: !done })}>{done ? '✓' : ''}</button>}
               <div>
                 {member === 'Tiffany' && editingTask === taskKey ? <input className="task-name-input" value={t.name} onChange={(event) => updateTask(i, { name: event.target.value })} aria-label="Task name" /> : <strong>{t.name}</strong>}
                 <small>{t.goal ? `${t.progress || 0} of ${t.goal} reached` : t.priority}</small>
