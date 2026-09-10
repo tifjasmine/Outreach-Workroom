@@ -10,7 +10,6 @@ import {
   Mail,
   Plus,
   Search,
-  Sparkles,
   UserRound,
   X,
 } from 'lucide-react';
@@ -141,11 +140,11 @@ const seed: Lead[] = [
 const nav = [
   'Overview',
   'Pipeline',
+  'Post Tracking',
   'Contacts',
   'Follow ups',
   'Tasks',
   'Shift Log',
-  'Settings',
 ];
 
 async function airtableApi<T = Record<string, unknown>>(path: string, options?: RequestInit): Promise<T> {
@@ -377,13 +376,6 @@ export default function Home() {
             </button>
           ))}
         </nav>
-        <div className="sidebar-note">
-          <Sparkles size={18} />
-          <p>
-            <strong>Everything in motion.</strong>
-            <br />A calm home for the work.
-          </p>
-        </div>
         <div className="profile">
           <span>{member === 'Tiffany' ? 'TW' : 'X'}</span>
           <div>
@@ -402,20 +394,14 @@ export default function Home() {
             add={() => setAddOpen(true)}
             member={member}
           />
-        ) : view === 'Contacts' ? (
-          <Contacts
-            leads={leads}
-            open={setSelected}
-            add={() => setAddOpen(true)}
-          />
         ) : view === 'Follow ups' ? (
           <FollowUps leads={leads} open={setSelected} />
+        ) : view === 'Post Tracking' ? (
+          <PostTracking leads={leads} change={changeLead} />
         ) : view === 'Tasks' ? (
           <Tasks tasks={weeklyTasks} setTasks={setWeeklyTasks} previousTasks={previousTasks} member={member} syncStatus={taskSyncStatus} />
         ) : view === 'Shift Log' ? (
           <Hours member={member} />
-        ) : view === 'Settings' ? (
-          <Settings />
         ) : (
           <Outreach
             title={view}
@@ -426,7 +412,7 @@ export default function Home() {
           />
         )}
       </section>
-      {!['Tasks', 'Shift Log', 'Settings'].includes(view) && (
+      {!['Tasks', 'Shift Log', 'Settings', 'Post Tracking'].includes(view) && (
         <button className="floating-add" onClick={() => setAddOpen(true)}>
           <Plus size={20} />
           <span>Add contact</span>
@@ -474,7 +460,6 @@ function LoginScreen({ onSignIn }: { onSignIn: (token: string, member: 'Tiffany'
         <div className="login-logo">O</div>
         <p className="eyebrow">OUTREACH WORKROOM</p>
         <h1>Welcome back.</h1>
-        <p>Sign in to the shared workspace.</p>
         <label>Your name<select name="member"><option>Tiffany</option><option>Xachil</option></select></label>
         <label>Your password<input name="passcode" type="password" required autoComplete="current-password" /></label>
         {error && <div className="login-error">{error}</div>}
@@ -699,25 +684,6 @@ function Outreach({
     [mobileStage, setMobileStage] = useState(statuses[0]),
     [search, setSearch] = useState(''),
     [filtersOpen, setFiltersOpen] = useState(false);
-  const spotlightColumns = brand === 'The Daily Session'
-    ? [
-        { key: 'lastSpotlightedClass', label: 'Spotlighted Classes' },
-        { key: 'lastSpotlightedStudio', label: 'Spotlighted Studios' },
-      ]
-    : brand === 'The Healing Directory'
-      ? [{ key: 'lastSpotlightedProvider', label: 'Spotlighted Providers' }]
-      : [
-          { key: 'lastSpotlightedClass', label: 'Spotlighted Classes' },
-          { key: 'lastSpotlightedStudio', label: 'Spotlighted Studios' },
-          { key: 'lastSpotlightedProvider', label: 'Spotlighted Providers' },
-        ];
-  const pipelineColumns = [
-    ...statuses.map((status) => ({ key: status, label: status, kind: 'status' as const })),
-    ...spotlightColumns.map((column) => ({ ...column, kind: 'spotlight' as const })),
-  ];
-  useEffect(() => {
-    if (!pipelineColumns.some((column) => column.key === mobileStage)) setMobileStage(statuses[0]);
-  }, [brand, mobileStage]);
   const filtered = leads.filter(
     (x) =>
       (brand === 'All' || x.brand === brand) &&
@@ -732,7 +698,6 @@ function Outreach({
       <Header
         eyebrow={title === 'Follow ups' ? 'DUE & OVERDUE' : brand === 'All' ? 'ALL CONTACTS' : brand.toUpperCase()}
         title={title === 'Follow ups' ? 'Follow ups' : 'Outreach pipeline'}
-        sub="The full path from first find to joined—without sales clutter."
         action={
           <button className="primary add-prominent" onClick={add}>
             <Plus size={17} /> Add contact
@@ -783,41 +748,41 @@ function Outreach({
       {mode === 'Pipeline' ? (
         <>
         <div className="mobile-stage-tabs" aria-label="Choose pipeline stage">
-          {pipelineColumns.map((column) => (
+          {statuses.map((status) => (
             <button
-              key={column.key}
-              className={mobileStage === column.key ? 'active' : ''}
-              onClick={() => setMobileStage(column.key)}
+              key={status}
+              className={mobileStage === status ? 'active' : ''}
+              onClick={() => setMobileStage(status)}
             >
-              <span>{column.label === 'Archived / Not a Good Fit' ? 'Archived' : column.label}</span>
-              <b>{column.kind === 'status' ? filtered.filter((x) => x.status === column.key).length : filtered.filter((x) => Boolean(x[column.key as keyof Lead])).length}</b>
+              <span>{status === 'Archived / Not a Good Fit' ? 'Archived' : status}</span>
+              <b>{filtered.filter((x) => x.status === status).length}</b>
             </button>
           ))}
         </div>
         <div className="pipeline">
-          {pipelineColumns.map((column) => (
+          {statuses.map((status) => (
             <section
-              className={`column ${mobileStage === column.key ? 'mobile-active' : ''}`}
-              key={column.key}
+              className={`column ${mobileStage === status ? 'mobile-active' : ''}`}
+              key={status}
               onDragOver={(e) => e.preventDefault()}
-              onDrop={(e) => column.kind === 'status' && move(e.dataTransfer.getData('id'), column.key)}
+              onDrop={(e) => move(e.dataTransfer.getData('id'), status)}
             >
               <div className="column-head">
-                <strong>{column.label}</strong>
+                <strong>{status}</strong>
                 <span>
-                  {column.kind === 'status' ? filtered.filter((x) => x.status === column.key).length : filtered.filter((x) => Boolean(x[column.key as keyof Lead])).length}
+                  {filtered.filter((x) => x.status === status).length}
                 </span>
-                {column.kind === 'status' && <button onClick={add}>
+                <button onClick={add}>
                   <Plus size={15} />
-                </button>}
+                </button>
               </div>
               {filtered
-                .filter((x) => column.kind === 'status' ? x.status === column.key : true)
+                .filter((x) => x.status === status)
                 .map((lead) => (
                   <article
-                    draggable={column.kind === 'status'}
+                    draggable
                     onDragStart={(e) =>
-                      column.kind === 'status' && e.dataTransfer.setData('id', String(lead.id))
+                      e.dataTransfer.setData('id', String(lead.id))
                     }
                     onClick={() => open(lead.id)}
                     className="lead-card"
@@ -826,18 +791,6 @@ function Outreach({
                     <GripVertical size={14} />
                     <strong>{lead.name}</strong>
                     <small>{lead.handle || lead.email}</small>
-                    {column.kind === 'spotlight' && <input
-                      className="spotlight-date"
-                      type="date"
-                      value={String(lead[column.key as keyof Lead] || '')}
-                      aria-label={`${column.label} date for ${lead.name}`}
-                      onClick={(e) => e.stopPropagation()}
-                      onChange={(e) => {
-                        e.stopPropagation();
-                        const next = { ...lead, [column.key]: e.target.value };
-                        setLeads(leads.map((item) => String(item.id) === String(lead.id) ? next : item));
-                      }}
-                    />}
                     {lead.due && (
                       <em className={lead.due === 'Today' ? 'overdue' : ''}>
                         Follow up: {lead.due}
@@ -904,7 +857,6 @@ function Contacts({
       <Header
         eyebrow="PEOPLE & PLACES"
         title="Contacts"
-        sub="Every studio, provider, creator, and partner in one clean home."
         action={
           <button className="primary add-prominent" onClick={add}>
             <Plus size={17} /> Add contact
@@ -982,6 +934,56 @@ function Contacts({
   );
 }
 
+function PostTracking({ leads, change }: { leads: Lead[]; change: (lead: Lead) => void }) {
+  const [brand, setBrand] = useState('All');
+  const [postType, setPostType] = useState('All');
+  const [dateOrder, setDateOrder] = useState('Needs date first');
+  const [search, setSearch] = useState('');
+  const trackers: { key: 'lastSpotlightedClass' | 'lastSpotlightedStudio' | 'lastSpotlightedProvider'; label: string; brand: string }[] = [
+    { key: 'lastSpotlightedClass', label: 'Spotlighted class', brand: 'The Daily Session' },
+    { key: 'lastSpotlightedStudio', label: 'Spotlighted studio', brand: 'The Daily Session' },
+    { key: 'lastSpotlightedProvider', label: 'Spotlighted provider', brand: 'The Healing Directory' },
+  ];
+  const rows = leads.flatMap((lead) => trackers
+    .filter((tracker) => tracker.brand === lead.brand)
+    .map((tracker) => ({ lead, tracker, date: lead[tracker.key] || '' })))
+    .filter(({ lead, tracker }) =>
+      (brand === 'All' || lead.brand === brand) &&
+      (postType === 'All' || tracker.label === postType) &&
+      `${lead.name} ${lead.handle}`.toLowerCase().includes(search.toLowerCase()))
+    .sort((a, b) => {
+      if (dateOrder === 'Needs date first') return Number(Boolean(a.date)) - Number(Boolean(b.date)) || a.lead.name.localeCompare(b.lead.name);
+      const aTime = a.date ? new Date(`${a.date}T00:00:00`).getTime() : 0;
+      const bTime = b.date ? new Date(`${b.date}T00:00:00`).getTime() : 0;
+      return dateOrder === 'Newest first' ? bTime - aTime : aTime - bTime;
+    });
+  return <>
+    <Header eyebrow="CONTENT" title="Post tracking" />
+    <div className="post-filters">
+      <label><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search contacts…" /></label>
+      <select value={brand} onChange={(event) => setBrand(event.target.value)} aria-label="Filter by brand">
+        <option>All</option><option>The Daily Session</option><option>The Healing Directory</option>
+      </select>
+      <select value={postType} onChange={(event) => setPostType(event.target.value)} aria-label="Filter by post type">
+        <option>All</option>{trackers.map((tracker) => <option key={tracker.key}>{tracker.label}</option>)}
+      </select>
+      <select value={dateOrder} onChange={(event) => setDateOrder(event.target.value)} aria-label="Sort by date">
+        <option>Needs date first</option><option>Newest first</option><option>Oldest first</option>
+      </select>
+    </div>
+    <section className="post-tracker">
+      <div className="post-tracker-head"><span>Contact</span><span>Brand</span><span>Post type</span><span>Last posted</span></div>
+      {rows.map(({ lead, tracker, date }) => <div className="post-tracker-row" key={`${lead.id}-${tracker.key}`}>
+        <span><strong>{lead.name}</strong><small>{lead.handle || lead.type}</small></span>
+        <b className={`brand-pill ${lead.brand.includes('Healing') ? 'thd' : ''}`}>{lead.brand.includes('Healing') ? 'The Healing Directory' : 'The Daily Session'}</b>
+        <span>{tracker.label}</span>
+        <input type="date" value={date} aria-label={`${tracker.label} date for ${lead.name}`} onChange={(event) => change({ ...lead, [tracker.key]: event.target.value })} />
+      </div>)}
+      {!rows.length && <p className="post-empty">No matching contacts.</p>}
+    </section>
+  </>;
+}
+
 function FollowUps({ leads, open }: { leads: Lead[]; open: (id: number | string) => void }) {
   const dueRank = (due?: string) => {
     if (!due) return Number.POSITIVE_INFINITY;
@@ -997,7 +999,7 @@ function FollowUps({ leads, open }: { leads: Lead[]; open: (id: number | string)
       return difference || a.name.localeCompare(b.name);
     });
   return <>
-    <Header eyebrow="FOLLOW-UP QUEUE" title="Who needs a follow up?" sub="Dated follow ups come first. Contacts without a date stay visible below so nobody gets lost." />
+    <Header eyebrow="FOLLOW-UP QUEUE" title="Follow ups" />
     <div className="followup-scroll">
       {actionable.map((lead) => <button className="followup-row" key={lead.id} onClick={() => open(lead.id)}>
         <span><strong>{lead.name}</strong><small>{lead.handle || lead.email || lead.type}</small></span>
@@ -1233,10 +1235,6 @@ function ContactDetail({
             <div className="update-intro">
               <UserRound />
               <h3>Leave an update</h3>
-              <p>
-                Share notes, progress, and keep everyone aligned on this
-                contact.
-              </p>
             </div>
             <div className="update-compose">
               <textarea
@@ -1331,7 +1329,6 @@ function Tasks({ tasks, setTasks, previousTasks, member, syncStatus }: { tasks: 
       <Header
         eyebrow={`SUNDAY–SATURDAY · WEEK OF ${prettyDate(currentSunday).toUpperCase()}`}
         title="This week’s checklist"
-        sub={member === 'Tiffany' ? 'Check off the work, adjust priorities, or add what this week needs.' : 'Check off work as you complete it. Tiffany manages the task list and priorities.'}
         action={member === 'Tiffany' ? (
           <button
             className="primary"
@@ -1502,7 +1499,6 @@ function Hours({ member }: { member: 'Tiffany' | 'Xachil' }) {
       <Header
         eyebrow="TIME & ACTIVITY"
         title="Shift log"
-        sub="Document each shift so both of you can see the work and hours in Airtable."
         action={
           <button className="primary" onClick={() => setShowForm(!showForm)}>
             + Log a shift
@@ -1609,46 +1605,6 @@ function Hours({ member }: { member: 'Tiffany' | 'Xachil' }) {
           </div>
         ))}
       </section>
-    </>
-  );
-}
-function Settings() {
-  return (
-    <>
-      <Header
-        eyebrow="WORKSPACE"
-        title="Settings"
-        sub="The little rules that keep the workroom running itself."
-      />
-      <div className="settings-card">
-        <div>
-          <h3>Automatically create standard weekly tasks</h3>
-          <p>
-            Start every Monday with the baseline assistant responsibilities
-            already assigned.
-          </p>
-        </div>
-        <button className="switch on">
-          <i />
-        </button>
-      </div>
-      <div className="settings-card">
-        <div>
-          <h3>Weekly task template</h3>
-          <p>
-            TDS outreach, THD outreach, follow ups, engagement, and new prospect
-            research.
-          </p>
-        </div>
-        <button>Edit template</button>
-      </div>
-      <div className="settings-card">
-        <div>
-          <h3>Team</h3>
-          <p>Tiffany · Owner &nbsp;&nbsp; Xachil · Collaborator</p>
-        </div>
-        <button>Manage</button>
-      </div>
     </>
   );
 }
