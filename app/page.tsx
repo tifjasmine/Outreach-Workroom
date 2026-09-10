@@ -1109,15 +1109,7 @@ function ContactDetail({
               </label>
               <label>
                 Offering type
-                <details className="offering-dropdown">
-                  <summary>{lead.offering?.length ? `${lead.offering.length} selected` : 'Select offering types'}</summary>
-                  <div className="offering-options">
-                    {offeringTypes.map((offering) => {
-                      const selected = (lead.offering || []).includes(offering);
-                      return <label key={offering}><input type="checkbox" checked={selected} onChange={() => change({ ...lead, offering: selected ? (lead.offering || []).filter((item) => item !== offering) : [...(lead.offering || []), offering] })} /> {offering}</label>;
-                    })}
-                  </div>
-                </details>
+                <OfferingDropdown selected={lead.offering || []} onToggle={(offering, selected) => change({ ...lead, offering: selected ? [...(lead.offering || []), offering] : (lead.offering || []).filter((item) => item !== offering) })} />
               </label>
             </div>
             <div className="detail-section">
@@ -1668,12 +1660,7 @@ function AddModal({
         </div>
         <fieldset className="offering-fieldset">
           <legend>Offering type <span>Choose all that apply</span></legend>
-          <details className="offering-dropdown">
-            <summary>Select offering types</summary>
-            <div className="offering-options">
-              {offeringTypes.map((offering) => <label key={offering}><input type="checkbox" name="offering" value={offering} /> {offering}</label>)}
-            </div>
-          </details>
+          <OfferingDropdown inputName="offering" />
         </fieldset>
         <label>
           Quick note
@@ -1689,4 +1676,28 @@ function AddModal({
       </form>
     </div>
   );
+}
+
+function OfferingDropdown({ selected = [], onToggle, inputName }: { selected?: string[]; onToggle?: (offering: string, selected: boolean) => void; inputName?: string }) {
+  const detailsRef = useRef<HTMLDetailsElement>(null);
+  useEffect(() => {
+    const closeOnOutsideClick = (event: MouseEvent | TouchEvent) => {
+      if (detailsRef.current?.open && !detailsRef.current.contains(event.target as Node)) detailsRef.current.open = false;
+    };
+    document.addEventListener('mousedown', closeOnOutsideClick);
+    document.addEventListener('touchstart', closeOnOutsideClick);
+    return () => {
+      document.removeEventListener('mousedown', closeOnOutsideClick);
+      document.removeEventListener('touchstart', closeOnOutsideClick);
+    };
+  }, []);
+  return <details className="offering-dropdown" ref={detailsRef}>
+    <summary>{selected.length ? `${selected.length} selected` : 'Select offering types'}</summary>
+    <div className="offering-options">
+      {offeringTypes.map((offering) => {
+        const checked = selected.includes(offering);
+        return <label key={offering}><input type="checkbox" name={inputName} value={offering} checked={onToggle ? checked : undefined} onChange={onToggle ? (event) => onToggle(offering, event.target.checked) : undefined} /> {offering}</label>;
+      })}
+    </div>
+  </details>;
 }
