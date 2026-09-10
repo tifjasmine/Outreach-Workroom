@@ -63,6 +63,9 @@ function contactFromRecord(record, shared = {}) {
     lastSpotlightedClass: f['Last Spotlighted Class'] || '',
     lastSpotlightedStudio: f['Last Spotlighted Studio'] || '',
     lastSpotlightedProvider: f['Last Spotlighted Provider'] || '',
+    lastContacted: f['Last Contacted'] || '',
+    joinedDate: f['Joined Date'] || '',
+    dateAdded: f['Date Added'] || record.createdTime || '',
     addedBy: f['Added By'] || 'Tiffany',
     updates: Array.isArray(shared.updates) ? shared.updates : [],
     tasks: Array.isArray(shared.tasks) ? shared.tasks : [],
@@ -82,6 +85,8 @@ function contactFields(contact) {
     'Last Spotlighted Class': contact.lastSpotlightedClass || null,
     'Last Spotlighted Studio': contact.lastSpotlightedStudio || null,
     'Last Spotlighted Provider': contact.lastSpotlightedProvider || null,
+    'Last Contacted': contact.lastContacted || null,
+    'Joined Date': contact.joinedDate || null,
     Notes: contact.note || '',
     'Added By': contact.addedBy || 'Tiffany',
   };

@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   List,
   Mail,
+  Menu,
   Plus,
   Search,
   UserRound,
@@ -30,6 +31,9 @@ type Lead = {
   lastSpotlightedClass?: string;
   lastSpotlightedStudio?: string;
   lastSpotlightedProvider?: string;
+  lastContacted?: string;
+  joinedDate?: string;
+  dateAdded?: string;
   addedBy: string;
   updates: Update[];
   tasks: ContactTask[];
@@ -173,6 +177,7 @@ export default function Home() {
     [previousTasks, setPreviousTasks] = useState<WeeklyTask[]>([]),
     [authToken, setAuthToken] = useState(''),
     [member, setMember] = useState<'Tiffany' | 'Xachil'>('Tiffany'),
+    [mobileNavOpen, setMobileNavOpen] = useState(false),
     [authChecked, setAuthChecked] = useState(false);
   const contactSyncTimers = useRef(new Map<number | string, ReturnType<typeof setTimeout>>());
   const currentTaskKey = dateKey(sundayOf(new Date()));
@@ -307,6 +312,7 @@ export default function Home() {
       lastSpotlightedClass: String(f.get('lastSpotlightedClass') || ''),
       lastSpotlightedStudio: String(f.get('lastSpotlightedStudio') || ''),
       lastSpotlightedProvider: String(f.get('lastSpotlightedProvider') || ''),
+      lastContacted: new Date().toISOString().slice(0, 10),
       note: String(f.get('note') || ''),
       addedBy: member,
       updates: [],
@@ -362,13 +368,16 @@ export default function Home() {
             <small>WORKROOM</small>
           </div>
         </button>
+        <button className="mobile-menu-toggle" onClick={() => setMobileNavOpen((open) => !open)} aria-label={mobileNavOpen ? 'Close navigation menu' : 'Open navigation menu'} aria-expanded={mobileNavOpen}>
+          {mobileNavOpen ? <X size={20} /> : <Menu size={20} />}
+        </button>
         <button className="sidebar-add" onClick={() => setAddOpen(true)}>
           <Plus size={17} /> Add contact
         </button>
-        <nav>
+        <nav className={mobileNavOpen ? 'mobile-open' : ''}>
           {nav.map((item) => (
             <button
-              onClick={() => setView(item)}
+              onClick={() => { setView(item); setMobileNavOpen(false); }}
               className={view === item ? 'active' : ''}
               key={item}
             >
@@ -394,6 +403,8 @@ export default function Home() {
             add={() => setAddOpen(true)}
             member={member}
           />
+        ) : view === 'Contacts' ? (
+          <Contacts leads={leads} open={setSelected} add={() => setAddOpen(true)} />
         ) : view === 'Follow ups' ? (
           <FollowUps leads={leads} open={setSelected} />
         ) : view === 'Post Tracking' ? (
@@ -490,6 +501,34 @@ function Header({
     </header>
   );
 }
+function localDateValue(value?: string) {
+  if (!value) return null;
+  if (value === 'Today') {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return today;
+  }
+  if (value === 'Tomorrow') {
+    const tomorrow = new Date();
+    tomorrow.setHours(0, 0, 0, 0);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return tomorrow;
+  }
+  const parsed = /^\d{4}-\d{2}-\d{2}$/.test(value) ? new Date(`${value}T00:00:00`) : new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function dueThisWeek(leads: Lead[]) {
+  const start = sundayOf(new Date());
+  const end = new Date(start);
+  end.setDate(end.getDate() + 6);
+  end.setHours(23, 59, 59, 999);
+  return leads.filter((lead) => {
+    if (['Joined', 'Archived / Not a Good Fit'].includes(lead.status)) return false;
+    const due = localDateValue(lead.due);
+    return Boolean(due && due >= start && due <= end);
+  });
+}
 function Dashboard({
   leads,
   tasks,
@@ -514,6 +553,7 @@ function Dashboard({
   }).toUpperCase();
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  const weeklyFollowUps = dueThisWeek(leads);
   const uniqueTasks = uniqueWeeklyTasks(tasks);
   const completedTasks = uniqueTasks.filter((task) => task.done || (task.goal && (task.progress || 0) >= task.goal)).length;
   const remainingTasks = uniqueTasks.length - completedTasks;
@@ -539,14 +579,14 @@ function Dashboard({
           <div className="card-head">
             <div>
               <p className="eyebrow coral">FOLLOW UPS</p>
-              <h2>{leads.filter((lead) => !['Joined', 'Archived / Not a Good Fit'].includes(lead.status)).length} waiting</h2>
+              <h2>{weeklyFollowUps.length} due this week</h2>
             </div>
-            <span>{leads.filter((lead) => !['Joined', 'Archived / Not a Good Fit'].includes(lead.status)).length} open</span>
+            <span>{weeklyFollowUps.length} due</span>
           </div>
           <div className="focus-row">
             <div>
-              <strong>{leads.filter((lead) => !['Joined', 'Archived / Not a Good Fit'].includes(lead.status)).length}</strong>
-              <small>Follow ups waiting</small>
+              <strong>{weeklyFollowUps.length}</strong>
+              <small>Due this week</small>
             </div>
             <button onClick={() => open('Follow ups')}>
               Start follow ups <ArrowUpRight size={16} />
@@ -691,8 +731,28 @@ function Outreach({
       (title !== 'Follow ups' || x.status === 'Follow Up') &&
       `${x.name} ${x.handle} ${x.email}`.toLowerCase().includes(search.toLowerCase()),
   );
-  const move = (id: number | string, status: string) =>
-    setLeads(leads.map((x) => (String(x.id) === String(id) ? { ...x, status } : x)));
+  const move = (id: number | string, status: string) => {
+    const today = new Date().toISOString().slice(0, 10);
+    setLeads(leads.map((x) => String(x.id) === String(id) ? {
+      ...x,
+      status,
+      ...(status === 'Contacted' ? { lastContacted: today } : {}),
+      ...(status === 'Joined' ? { joinedDate: today } : {}),
+    } : x));
+  };
+  const sortedForStage = (status: string) => filtered
+    .filter((lead) => lead.status === status)
+    .sort((a, b) => {
+      if (status === 'Follow Up Sent') {
+        const aDue = localDateValue(a.due)?.getTime() ?? Number.POSITIVE_INFINITY;
+        const bDue = localDateValue(b.due)?.getTime() ?? Number.POSITIVE_INFINITY;
+        return aDue - bDue || a.name.localeCompare(b.name);
+      }
+      const field: 'joinedDate' | 'lastContacted' | 'dateAdded' = status === 'Joined' ? 'joinedDate' : status === 'Contacted' ? 'lastContacted' : 'dateAdded';
+      const aTime = localDateValue(a[field] || a.dateAdded)?.getTime() ?? 0;
+      const bTime = localDateValue(b[field] || b.dateAdded)?.getTime() ?? 0;
+      return bTime - aTime || a.name.localeCompare(b.name);
+    });
   return (
     <>
       <Header
@@ -776,9 +836,7 @@ function Outreach({
                   <Plus size={15} />
                 </button>
               </div>
-              {filtered
-                .filter((x) => x.status === status)
-                .map((lead) => (
+              {sortedForStage(status).map((lead) => (
                   <article
                     draggable
                     onDragStart={(e) =>
@@ -791,6 +849,8 @@ function Outreach({
                     <GripVertical size={14} />
                     <strong>{lead.name}</strong>
                     <small>{lead.handle || lead.email}</small>
+                    {status === 'Contacted' && (lead.lastContacted || lead.dateAdded) && <em>Contacted: {lead.lastContacted || lead.dateAdded?.slice(0, 10)}</em>}
+                    {status === 'Joined' && (lead.joinedDate || lead.dateAdded) && <em>Joined: {lead.joinedDate || lead.dateAdded?.slice(0, 10)}</em>}
                     {lead.due && (
                       <em className={lead.due === 'Today' ? 'overdue' : ''}>
                         Follow up: {lead.due}
@@ -1152,7 +1212,16 @@ function ContactDetail({
                 Stage
                 <select
                   value={lead.status}
-                  onChange={(e) => change({ ...lead, status: e.target.value })}
+                  onChange={(e) => {
+                    const status = e.target.value;
+                    const today = new Date().toISOString().slice(0, 10);
+                    change({
+                      ...lead,
+                      status,
+                      ...(status === 'Contacted' ? { lastContacted: today } : {}),
+                      ...(status === 'Joined' ? { joinedDate: today } : {}),
+                    });
+                  }}
                 >
                   {statuses.map((x) => (
                     <option key={x}>{x}</option>
