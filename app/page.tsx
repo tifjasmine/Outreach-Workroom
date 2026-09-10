@@ -391,6 +391,7 @@ export default function Home() {
           <Dashboard
             leads={leads}
             tasks={weeklyTasks}
+            setTasks={setWeeklyTasks}
             open={setView}
             add={() => setAddOpen(true)}
             member={member}
@@ -501,12 +502,14 @@ function Header({
 function Dashboard({
   leads,
   tasks,
+  setTasks,
   open,
   add,
   member,
 }: {
   leads: Lead[];
   tasks: WeeklyTask[];
+  setTasks: (tasks: WeeklyTask[]) => void;
   open: (v: string) => void;
   add: () => void;
   member: 'Tiffany' | 'Xachil';
@@ -522,6 +525,13 @@ function Dashboard({
   const completedTasks = uniqueTasks.filter((task) => task.done || (task.goal && (task.progress || 0) >= task.goal)).length;
   const remainingTasks = uniqueTasks.length - completedTasks;
   const brandTasks = uniqueTasks.filter((task) => task.brand === taskBrand);
+  const updateTask = (target: WeeklyTask, changes: Partial<WeeklyTask>) => {
+    const targetKey = target.airtableId || `${target.weekOf || ''}|${target.brand}|${target.name}`;
+    setTasks(uniqueTasks.map((task) => {
+      const key = task.airtableId || `${task.weekOf || ''}|${task.brand}|${task.name}`;
+      return key === targetKey ? { ...task, ...changes } : task;
+    }));
+  };
   return (
     <>
       <Header
@@ -568,11 +578,16 @@ function Dashboard({
           </div>
           {brandTasks.map((task) => (
             <div className={`task ${task.done || (task.goal && (task.progress || 0) >= task.goal) ? 'done' : 'in-progress'}`} key={`${task.brand}-${task.name}`}>
-              <i />
+              {!task.goal ? <button className="dashboard-task-check" aria-label={`Mark ${task.name} ${task.done ? 'incomplete' : 'complete'}`} onClick={() => updateTask(task, { done: !task.done })}>{task.done ? '✓' : ''}</button> : <i />}
               <div>
                 <strong>{task.name}</strong>
                 <small>{task.goal ? `${task.progress || 0}/${task.goal} reached · ${task.priority}` : task.done ? `Completed · ${task.priority}` : task.priority}</small>
               </div>
+              {task.goal && <div className="dashboard-goal-controls">
+                <button aria-label={`Remove one from ${task.name}`} onClick={() => updateTask(task, { progress: Math.max(0, Number(task.progress || 0) - 1), done: false })}>−</button>
+                <strong>{task.progress || 0}/{task.goal}</strong>
+                <button aria-label={`Add one to ${task.name}`} onClick={() => updateTask(task, { progress: Math.min(Number(task.goal), Number(task.progress || 0) + 1) })}>+</button>
+              </div>}
             </div>
           ))}
           <button className="text-link" onClick={() => open('Tasks')}>
@@ -1233,6 +1248,7 @@ function Tasks({ tasks, setTasks, previousTasks, member, syncStatus }: { tasks: 
   const [newPriority, setNewPriority] = useState<TaskPriority>('Normal');
   const [brandFilter, setBrandFilter] = useState<WeeklyTask['brand']>('The Daily Session');
   const [priorityFilter, setPriorityFilter] = useState<'All' | TaskPriority>('All');
+  const [editingTask, setEditingTask] = useState<string | null>(null);
   const savedPreviousTasks = previousTasks.filter((task) => task.weekOf === previousKey);
   const add = () => {
     if (!newTask.trim()) return;
@@ -1303,6 +1319,7 @@ function Tasks({ tasks, setTasks, previousTasks, member, syncStatus }: { tasks: 
           {visibleTasks.map((t) => {
             const i = tasks.indexOf(t);
             const done = isComplete(t);
+            const taskKey = t.airtableId || `${t.brand}-${t.name}`;
             return (
             <div
               className={`task-row ${done ? 'done' : ''}`}
@@ -1313,7 +1330,7 @@ function Tasks({ tasks, setTasks, previousTasks, member, syncStatus }: { tasks: 
               </button>}
               {t.goal && <span className={`goal-status ${done ? 'done' : ''}`}>{done ? '✓' : t.progress || 0}</span>}
               <div>
-                <strong>{t.name}</strong>
+                {member === 'Tiffany' && editingTask === taskKey ? <input className="task-name-input" value={t.name} onChange={(event) => updateTask(i, { name: event.target.value })} aria-label="Task name" /> : <strong>{t.name}</strong>}
                 <small>{t.goal ? `${t.progress || 0} of ${t.goal} reached` : t.priority}</small>
               </div>
               {t.goal && (
@@ -1328,6 +1345,11 @@ function Tasks({ tasks, setTasks, previousTasks, member, syncStatus }: { tasks: 
                 <option>Normal</option>
                 <option>Low</option>
               </select> : <span className="task-priority-label">{t.priority}</span>}
+              {member === 'Tiffany' && editingTask === taskKey && <div className="task-admin-fields">
+                <select value={t.brand} onChange={(event) => updateTask(i, { brand: event.target.value as WeeklyTask['brand'] })} aria-label="Task brand"><option>The Daily Session</option><option>The Healing Directory</option></select>
+                <label>Goal <input type="number" min="0" value={t.goal || 0} onChange={(event) => updateTask(i, { goal: Number(event.target.value) || undefined, progress: Number(event.target.value) ? t.progress || 0 : undefined })} /></label>
+              </div>}
+              {member === 'Tiffany' && <button className="task-edit-button" onClick={() => setEditingTask(editingTask === taskKey ? null : taskKey)}>{editingTask === taskKey ? 'Done' : 'Edit'}</button>}
             </div>
             );
           })}
