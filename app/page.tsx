@@ -485,7 +485,7 @@ function Header({
 }: {
   eyebrow: string;
   title: string;
-  sub: string;
+  sub?: string;
   action?: React.ReactNode;
 }) {
   return (
@@ -493,7 +493,7 @@ function Header({
       <div>
         <p className="eyebrow">{eyebrow}</p>
         <h1>{title}</h1>
-        <p>{sub}</p>
+        {sub && <p>{sub}</p>}
       </div>
       {action}
     </header>
@@ -539,7 +539,6 @@ function Dashboard({
       <Header
         eyebrow={todayLabel.replace(', ', ' · ')}
         title={`${greeting}, ${member}`}
-        sub="Contacts, weekly outreach, and follow ups."
         action={<div className="header-actions">
           <button className="shift-link" onClick={() => open('Shift Log')}>Log a shift</button>
           <button className="primary add-prominent" onClick={add}>
@@ -630,6 +629,19 @@ function Brand({
   accent?: boolean;
   open: () => void;
 }) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const isDue = (lead: Lead) => {
+    if (!lead.due || ['Joined', 'Archived / Not a Good Fit'].includes(lead.status)) return false;
+    if (lead.due === 'Today') return true;
+    if (lead.due === 'Tomorrow') return false;
+    const dueDate = /^\d{4}-\d{2}-\d{2}$/.test(lead.due)
+      ? new Date(`${lead.due}T00:00:00`)
+      : new Date(lead.due);
+    if (Number.isNaN(dueDate.getTime())) return false;
+    dueDate.setHours(0, 0, 0, 0);
+    return dueDate <= today;
+  };
   return (
     <section className={`brand-card ${accent ? 'accent' : ''}`}>
       <div className="brand-icon">{initials}</div>
@@ -648,9 +660,13 @@ function Brand({
         </div>
         <div>
           <strong>
-            {leads.filter((x) => x.status === 'Follow Up Sent').length}
+            {leads.filter(isDue).length}
           </strong>
           <small>Due</small>
+        </div>
+        <div>
+          <strong>{leads.filter((x) => x.status === 'Joined').length}</strong>
+          <small>Joined</small>
         </div>
       </div>
       <button onClick={open}>
@@ -1683,14 +1699,16 @@ function AddModal({
 function OfferingDropdown({ selected = [], onToggle, inputName }: { selected?: string[]; onToggle?: (offering: string, selected: boolean) => void; inputName?: string }) {
   const detailsRef = useRef<HTMLDetailsElement>(null);
   useEffect(() => {
-    const closeOnOutsideClick = (event: MouseEvent | TouchEvent) => {
+    const closeOnOutsideClick = (event: Event) => {
       if (detailsRef.current?.open && !detailsRef.current.contains(event.target as Node)) detailsRef.current.open = false;
     };
-    document.addEventListener('mousedown', closeOnOutsideClick);
-    document.addEventListener('touchstart', closeOnOutsideClick);
+    document.addEventListener('pointerdown', closeOnOutsideClick, true);
+    document.addEventListener('click', closeOnOutsideClick, true);
+    document.addEventListener('focusin', closeOnOutsideClick, true);
     return () => {
-      document.removeEventListener('mousedown', closeOnOutsideClick);
-      document.removeEventListener('touchstart', closeOnOutsideClick);
+      document.removeEventListener('pointerdown', closeOnOutsideClick, true);
+      document.removeEventListener('click', closeOnOutsideClick, true);
+      document.removeEventListener('focusin', closeOnOutsideClick, true);
     };
   }, []);
   return <details className="offering-dropdown" ref={detailsRef}>

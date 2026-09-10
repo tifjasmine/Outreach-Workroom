@@ -227,3 +227,4 @@
   .locked-task { padding: 13px 16px; }
   .hours-form { padding: 16px; }
 }
+.brand-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); }
