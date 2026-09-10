@@ -37,6 +37,16 @@
 .sync-note { margin: -5px 0 12px; color: var(--muted); font-size: 10px; }
 .sync-note.error { color: var(--coral); }
 .shift-link { min-height: 42px; border: 1px solid var(--line); border-radius: 999px; background: var(--paper); padding: 0 17px; color: var(--green); font-size: 11px; font-weight: 700; }
+.offering-fieldset { margin: 0 0 15px; padding: 0; border: 0; }
+.offering-fieldset legend { margin-bottom: 8px; font-size: 9px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+.offering-fieldset legend span { margin-left: 7px; color: var(--muted); font-weight: 400; letter-spacing: 0; text-transform: none; }
+.offering-options, .offering-pills { display: flex; flex-wrap: wrap; gap: 7px; }
+.offering-options label { display: flex; flex-direction: row; align-items: center; gap: 5px; margin: 0; padding: 8px 10px; border: 1px solid var(--line); border-radius: 999px; background: white; font-size: 10px; font-weight: 600; letter-spacing: 0; text-transform: none; }
+.offering-options input { width: auto; min-height: 0; margin: 0; accent-color: var(--green); }
+.offering-pills { margin-top: 7px; padding: 9px; border: 1px solid var(--line); border-radius: 10px; background: white; }
+.offering-pills button { border: 1px solid var(--line); border-radius: 999px; background: var(--paper); padding: 6px 9px; color: var(--muted); font-size: 9px; }
+.offering-pills button.selected { border-color: var(--green); background: #dfe9df; color: var(--green); }
+.duplicate-alert { margin: 0 0 14px; padding: 11px 12px; border: 1px solid #d7644060; border-radius: 10px; background: #fff0eb; color: #a33f23; font-size: 11px; line-height: 1.4; }
 .hours-table-head, .hours-table-row { grid-template-columns: 110px 100px 80px 1.25fr 1.4fr 80px 45px; }
 .task.in-progress i { background: var(--coral); }
 .task.done i { background: var(--green); }

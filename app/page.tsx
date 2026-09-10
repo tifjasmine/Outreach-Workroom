@@ -24,7 +24,7 @@ type Lead = {
   email?: string;
   brand: string;
   type: string;
-  offering?: string;
+  offering?: string[];
   status: string;
   note: string;
   due?: string;
@@ -38,6 +38,7 @@ const statuses = [
   'Joined',
   'Archived / Not a Good Fit',
 ];
+const offeringTypes = ['Yoga', 'Pilates', 'Dance', 'Fitness', 'Meditation', 'Breathwork', 'Therapy', 'Coaching', 'Bodywork', 'Creative', 'Other'];
 const seed: Lead[] = [
   {
     id: 1,
@@ -162,6 +163,7 @@ export default function Home() {
   const [view, setView] = useState('Overview'),
     [leads, setLeads] = useState<Lead[]>(seed),
     [addOpen, setAddOpen] = useState(false),
+    [addError, setAddError] = useState(''),
     [selected, setSelected] = useState<number | string | null>(null),
     [ready, setReady] = useState(false),
     [airtableReady, setAirtableReady] = useState(false),
@@ -278,14 +280,25 @@ export default function Home() {
   const addLead = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
+    const name = String(f.get('name') || '').trim();
+    const handle = String(f.get('instagram') || '').trim();
+    const normalizedHandle = handle.replace(/^@/, '').toLowerCase();
+    const duplicate = leads.find((contact) =>
+      contact.name.trim().toLowerCase() === name.toLowerCase() ||
+      (normalizedHandle && contact.handle.replace(/^@/, '').trim().toLowerCase() === normalizedHandle),
+    );
+    if (duplicate) {
+      setAddError(`${duplicate.name} already exists. Open the existing contact instead.`);
+      return;
+    }
     const lead: Lead = {
       id: Date.now(),
-      name: String(f.get('name')),
-      handle: String(f.get('instagram') || ''),
+      name,
+      handle,
       email: String(f.get('email') || ''),
       brand: String(f.get('brand')),
       type: String(f.get('type')),
-      offering: String(f.get('offering') || ''),
+      offering: f.getAll('offering').map(String),
       status: String(f.get('status')),
       due: String(f.get('due') || ''),
       note: String(f.get('note') || ''),
@@ -293,12 +306,14 @@ export default function Home() {
       updates: [],
       tasks: [],
     };
-    setLeads([lead, ...leads]);
-    setAddOpen(false);
     try {
       const saved = await airtableApi<Lead>('?resource=contacts', { method: 'POST', body: JSON.stringify(lead) });
-      setLeads((current) => current.map((item) => item.id === lead.id ? saved : item));
-    } catch {}
+      setLeads((current) => [saved, ...current]);
+      setAddError('');
+      setAddOpen(false);
+    } catch (reason) {
+      setAddError(reason instanceof Error ? reason.message : 'Could not add this contact.');
+    }
   };
   const changeLead = (next: Lead) => {
     setLeads(leads.map((x) => (x.id === next.id ? next : x)));
@@ -407,7 +422,7 @@ export default function Home() {
           <span>Add contact</span>
         </button>
       )}
-      {addOpen && <AddModal close={() => setAddOpen(false)} submit={addLead} />}{' '}
+      {addOpen && <AddModal close={() => { setAddOpen(false); setAddError(''); }} submit={addLead} error={addError} />}{' '}
       {selected && (
         <ContactDetail
           lead={leads.find((x) => x.id === selected)!}
@@ -1011,12 +1026,13 @@ function ContactDetail({
                 />
               </label>
               <label>
-                Type of offering
-                <input
-                  value={lead.offering || ''}
-                  onChange={(e) => change({ ...lead, offering: e.target.value })}
-                  placeholder="Yoga studio, therapist, Pilates…"
-                />
+                Offering type
+                <div className="offering-pills">
+                  {offeringTypes.map((offering) => {
+                    const selected = (lead.offering || []).includes(offering);
+                    return <button type="button" className={selected ? 'selected' : ''} key={offering} onClick={() => change({ ...lead, offering: selected ? (lead.offering || []).filter((item) => item !== offering) : [...(lead.offering || []), offering] })}>{offering}</button>;
+                  })}
+                </div>
               </label>
             </div>
             <div className="detail-section">
@@ -1471,9 +1487,11 @@ function Settings() {
 function AddModal({
   close,
   submit,
+  error,
 }: {
   close: () => void;
   submit: (e: React.FormEvent<HTMLFormElement>) => void;
+  error: string;
 }) {
   const [brand, setBrand] = useState('The Daily Session');
   const contactTypes =
@@ -1542,13 +1560,12 @@ function AddModal({
             <input name="due" type="date" />
           </label>
         </div>
-        <label>
-          Type of offering
-          <input
-            name="offering"
-            placeholder="Yoga studio, therapist, Pilates…"
-          />
-        </label>
+        <fieldset className="offering-fieldset">
+          <legend>Offering type <span>Choose all that apply</span></legend>
+          <div className="offering-options">
+            {offeringTypes.map((offering) => <label key={offering}><input type="checkbox" name="offering" value={offering} /> {offering}</label>)}
+          </div>
+        </fieldset>
         <label>
           Quick note
           <textarea
@@ -1556,6 +1573,7 @@ function AddModal({
             placeholder="Anything helpful for the next touchpoint…"
           />
         </label>
+        {error && <div className="duplicate-alert" role="alert">{error}</div>}
         <button className="primary" type="submit">
           <Plus size={17} /> Add contact
         </button>

@@ -56,7 +56,7 @@ function contactFromRecord(record, shared = {}) {
     email: f.Email || '',
     brand: f.Brand || 'The Daily Session',
     type: f['Contact Type'] || 'Studio',
-    offering: f['Type of Offering'] || '',
+    offering: Array.isArray(f['Offering Type']) ? f['Offering Type'] : [],
     status: f.Stage || 'Contacted',
     note: f.Notes || '',
     due: f['Follow Up Date'] || '',
@@ -73,7 +73,7 @@ function contactFields(contact) {
     Email: contact.email || '',
     Brand: contact.brand,
     'Contact Type': contact.type,
-    'Type of Offering': contact.offering || '',
+    'Offering Type': Array.isArray(contact.offering) ? contact.offering : [],
     Stage: contact.status,
     'Follow Up Date': contact.due || null,
     Notes: contact.note || '',
@@ -181,6 +181,16 @@ export async function handler(event) {
 
     const body = JSON.parse(event.body || '{}');
     if (resource === 'contacts' && event.httpMethod === 'POST') {
+      const existing = await list('contacts');
+      const normalizedName = String(body.name || '').trim().toLowerCase();
+      const normalizedHandle = String(body.handle || '').replace(/^@/, '').trim().toLowerCase();
+      const duplicate = existing.find((record) => {
+        const fields = record.fields || {};
+        const recordName = String(fields['Contact Name'] || '').trim().toLowerCase();
+        const recordHandle = String(fields.Instagram || '').replace(/^@/, '').trim().toLowerCase();
+        return recordName === normalizedName || (normalizedHandle && recordHandle === normalizedHandle);
+      });
+      if (duplicate) return response(409, { error: `${duplicate.fields?.['Contact Name'] || 'This contact'} already exists.` });
       const data = await airtable('contacts', '', { method: 'POST', body: JSON.stringify({ records: [{ fields: contactFields(body) }], typecast: true }) });
       return response(201, contactFromRecord(data.records[0]));
     }
