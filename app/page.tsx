@@ -1109,12 +1109,15 @@ function ContactDetail({
               </label>
               <label>
                 Offering type
-                <div className="offering-pills">
-                  {offeringTypes.map((offering) => {
-                    const selected = (lead.offering || []).includes(offering);
-                    return <button type="button" className={selected ? 'selected' : ''} key={offering} onClick={() => change({ ...lead, offering: selected ? (lead.offering || []).filter((item) => item !== offering) : [...(lead.offering || []), offering] })}>{offering}</button>;
-                  })}
-                </div>
+                <details className="offering-dropdown">
+                  <summary>{lead.offering?.length ? `${lead.offering.length} selected` : 'Select offering types'}</summary>
+                  <div className="offering-options">
+                    {offeringTypes.map((offering) => {
+                      const selected = (lead.offering || []).includes(offering);
+                      return <label key={offering}><input type="checkbox" checked={selected} onChange={() => change({ ...lead, offering: selected ? (lead.offering || []).filter((item) => item !== offering) : [...(lead.offering || []), offering] })} /> {offering}</label>;
+                    })}
+                  </div>
+                </details>
               </label>
             </div>
             <div className="detail-section">
@@ -1665,9 +1668,12 @@ function AddModal({
         </div>
         <fieldset className="offering-fieldset">
           <legend>Offering type <span>Choose all that apply</span></legend>
-          <div className="offering-options">
-            {offeringTypes.map((offering) => <label key={offering}><input type="checkbox" name="offering" value={offering} /> {offering}</label>)}
-          </div>
+          <details className="offering-dropdown">
+            <summary>Select offering types</summary>
+            <div className="offering-options">
+              {offeringTypes.map((offering) => <label key={offering}><input type="checkbox" name="offering" value={offering} /> {offering}</label>)}
+            </div>
+          </details>
         </fieldset>
         <label>
           Quick note
