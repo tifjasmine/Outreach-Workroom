@@ -62,6 +62,7 @@ function contactFromRecord(record, shared = {}) {
     due: f['Follow Up Date'] || '',
     lastSpotlightedClass: f['Last Spotlighted Class'] || '',
     lastSpotlightedStudio: f['Last Spotlighted Studio'] || '',
+    lastSpotlightedProvider: f['Last Spotlighted Provider'] || '',
     addedBy: f['Added By'] || 'Tiffany',
     updates: Array.isArray(shared.updates) ? shared.updates : [],
     tasks: Array.isArray(shared.tasks) ? shared.tasks : [],
@@ -80,6 +81,7 @@ function contactFields(contact) {
     'Follow Up Date': contact.due || null,
     'Last Spotlighted Class': contact.lastSpotlightedClass || null,
     'Last Spotlighted Studio': contact.lastSpotlightedStudio || null,
+    'Last Spotlighted Provider': contact.lastSpotlightedProvider || null,
     Notes: contact.note || '',
     'Added By': contact.addedBy || 'Tiffany',
   };

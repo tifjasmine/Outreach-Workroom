@@ -228,3 +228,9 @@
   .hours-form { padding: 16px; }
 }
 .brand-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.pipeline { grid-auto-columns: minmax(220px, 1fr); }
+.spotlight-date { width: 100%; margin: 5px 0 12px; padding: 9px 10px; border: 1px solid var(--line); border-radius: 9px; background: #fff; color: var(--green); font-size: 11px; }
+@media (max-width: 850px) {
+  .header-actions { width: 100% !important; }
+  .shift-link { width: 100%; min-height: 44px; }
+}

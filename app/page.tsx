@@ -30,6 +30,7 @@ type Lead = {
   due?: string;
   lastSpotlightedClass?: string;
   lastSpotlightedStudio?: string;
+  lastSpotlightedProvider?: string;
   addedBy: string;
   updates: Update[];
   tasks: ContactTask[];
@@ -306,6 +307,7 @@ export default function Home() {
       due: String(f.get('due') || ''),
       lastSpotlightedClass: String(f.get('lastSpotlightedClass') || ''),
       lastSpotlightedStudio: String(f.get('lastSpotlightedStudio') || ''),
+      lastSpotlightedProvider: String(f.get('lastSpotlightedProvider') || ''),
       note: String(f.get('note') || ''),
       addedBy: member,
       updates: [],
@@ -545,9 +547,6 @@ function Dashboard({
         title={`${greeting}, ${member}`}
         action={<div className="header-actions">
           <button className="shift-link" onClick={() => open('Shift Log')}>Log a shift</button>
-          <button className="primary add-prominent" onClick={add}>
-            <Plus size={17} /> Add contact
-          </button>
         </div>}
       />
       <div className="dashboard-grid">
@@ -700,6 +699,25 @@ function Outreach({
     [mobileStage, setMobileStage] = useState(statuses[0]),
     [search, setSearch] = useState(''),
     [filtersOpen, setFiltersOpen] = useState(false);
+  const spotlightColumns = brand === 'The Daily Session'
+    ? [
+        { key: 'lastSpotlightedClass', label: 'Spotlighted Classes' },
+        { key: 'lastSpotlightedStudio', label: 'Spotlighted Studios' },
+      ]
+    : brand === 'The Healing Directory'
+      ? [{ key: 'lastSpotlightedProvider', label: 'Spotlighted Providers' }]
+      : [
+          { key: 'lastSpotlightedClass', label: 'Spotlighted Classes' },
+          { key: 'lastSpotlightedStudio', label: 'Spotlighted Studios' },
+          { key: 'lastSpotlightedProvider', label: 'Spotlighted Providers' },
+        ];
+  const pipelineColumns = [
+    ...statuses.map((status) => ({ key: status, label: status, kind: 'status' as const })),
+    ...spotlightColumns.map((column) => ({ ...column, kind: 'spotlight' as const })),
+  ];
+  useEffect(() => {
+    if (!pipelineColumns.some((column) => column.key === mobileStage)) setMobileStage(statuses[0]);
+  }, [brand, mobileStage]);
   const filtered = leads.filter(
     (x) =>
       (brand === 'All' || x.brand === brand) &&
@@ -765,41 +783,41 @@ function Outreach({
       {mode === 'Pipeline' ? (
         <>
         <div className="mobile-stage-tabs" aria-label="Choose pipeline stage">
-          {statuses.map((status) => (
+          {pipelineColumns.map((column) => (
             <button
-              key={status}
-              className={mobileStage === status ? 'active' : ''}
-              onClick={() => setMobileStage(status)}
+              key={column.key}
+              className={mobileStage === column.key ? 'active' : ''}
+              onClick={() => setMobileStage(column.key)}
             >
-              <span>{status === 'Archived / Not a Good Fit' ? 'Archived' : status}</span>
-              <b>{filtered.filter((x) => x.status === status).length}</b>
+              <span>{column.label === 'Archived / Not a Good Fit' ? 'Archived' : column.label}</span>
+              <b>{column.kind === 'status' ? filtered.filter((x) => x.status === column.key).length : filtered.filter((x) => Boolean(x[column.key as keyof Lead])).length}</b>
             </button>
           ))}
         </div>
         <div className="pipeline">
-          {statuses.map((status) => (
+          {pipelineColumns.map((column) => (
             <section
-              className={`column ${mobileStage === status ? 'mobile-active' : ''}`}
-              key={status}
+              className={`column ${mobileStage === column.key ? 'mobile-active' : ''}`}
+              key={column.key}
               onDragOver={(e) => e.preventDefault()}
-              onDrop={(e) => move(e.dataTransfer.getData('id'), status)}
+              onDrop={(e) => column.kind === 'status' && move(e.dataTransfer.getData('id'), column.key)}
             >
               <div className="column-head">
-                <strong>{status}</strong>
+                <strong>{column.label}</strong>
                 <span>
-                  {filtered.filter((x) => x.status === status).length}
+                  {column.kind === 'status' ? filtered.filter((x) => x.status === column.key).length : filtered.filter((x) => Boolean(x[column.key as keyof Lead])).length}
                 </span>
-                <button onClick={add}>
+                {column.kind === 'status' && <button onClick={add}>
                   <Plus size={15} />
-                </button>
+                </button>}
               </div>
               {filtered
-                .filter((x) => x.status === status)
+                .filter((x) => column.kind === 'status' ? x.status === column.key : true)
                 .map((lead) => (
                   <article
-                    draggable
+                    draggable={column.kind === 'status'}
                     onDragStart={(e) =>
-                      e.dataTransfer.setData('id', String(lead.id))
+                      column.kind === 'status' && e.dataTransfer.setData('id', String(lead.id))
                     }
                     onClick={() => open(lead.id)}
                     className="lead-card"
@@ -808,6 +826,18 @@ function Outreach({
                     <GripVertical size={14} />
                     <strong>{lead.name}</strong>
                     <small>{lead.handle || lead.email}</small>
+                    {column.kind === 'spotlight' && <input
+                      className="spotlight-date"
+                      type="date"
+                      value={String(lead[column.key as keyof Lead] || '')}
+                      aria-label={`${column.label} date for ${lead.name}`}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        const next = { ...lead, [column.key]: e.target.value };
+                        setLeads(leads.map((item) => String(item.id) === String(lead.id) ? next : item));
+                      }}
+                    />}
                     {lead.due && (
                       <em className={lead.due === 'Today' ? 'overdue' : ''}>
                         Follow up: {lead.due}
@@ -1000,6 +1030,7 @@ function ContactTable({
               'Follow-up date',
               'Last spotlighted class',
               'Last spotlighted studio',
+              'Last spotlighted provider',
               'Added By',
             ].map((x) => (
               <th key={x}>{x}</th>
@@ -1028,6 +1059,7 @@ function ContactTable({
               <td data-label="Follow-up date">{x.due || '—'}</td>
               <td data-label="Last spotlighted class">{x.lastSpotlightedClass || '—'}</td>
               <td data-label="Last spotlighted studio">{x.lastSpotlightedStudio || '—'}</td>
+              <td data-label="Last spotlighted provider">{x.lastSpotlightedProvider || '—'}</td>
               <td data-label="Added By">{x.addedBy}</td>
             </tr>
           ))}
@@ -1140,6 +1172,10 @@ function ContactDetail({
               <label>
                 Last spotlighted studio
                 <input type="date" value={lead.lastSpotlightedStudio || ''} onChange={(e) => change({ ...lead, lastSpotlightedStudio: e.target.value })} />
+              </label>
+              <label>
+                Last spotlighted provider
+                <input type="date" value={lead.lastSpotlightedProvider || ''} onChange={(e) => change({ ...lead, lastSpotlightedProvider: e.target.value })} />
               </label>
               <label>
                 Offering type
@@ -1698,6 +1734,10 @@ function AddModal({
           <label>
             Last spotlighted studio
             <input name="lastSpotlightedStudio" type="date" />
+          </label>
+          <label>
+            Last spotlighted provider
+            <input name="lastSpotlightedProvider" type="date" />
           </label>
         </div>
         <fieldset className="offering-fieldset">
