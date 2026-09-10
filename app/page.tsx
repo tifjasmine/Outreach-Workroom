@@ -521,6 +521,8 @@ function Dashboard({
     month: 'long',
     day: 'numeric',
   }).toUpperCase();
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
   const uniqueTasks = uniqueWeeklyTasks(tasks);
   const completedTasks = uniqueTasks.filter((task) => task.done || (task.goal && (task.progress || 0) >= task.goal)).length;
   const remainingTasks = uniqueTasks.length - completedTasks;
@@ -536,7 +538,7 @@ function Dashboard({
     <>
       <Header
         eyebrow={todayLabel.replace(', ', ' · ')}
-        title={member}
+        title={`${greeting}, ${member}`}
         sub="Contacts, weekly outreach, and follow ups."
         action={<div className="header-actions">
           <button className="shift-link" onClick={() => open('Shift Log')}>Log a shift</button>
